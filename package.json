@@ -1,5 +1,15 @@
 {
-  "devDependencies": {
-    "@types/node": "^18.11.9"
+  "name": "topggbotvoter",
+  "version": "1.0.0",
+  "description": "Automates bot voting",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ghost-cursor": "^1.1.16",
+    "typescript": "^4.8.4"
   }
 }
