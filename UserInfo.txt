@@ -1,0 +1,10 @@
+{
+    "discord_username":"johndoe@example.com",
+    "discord_password":"password",
+    "real_screen":"TRUE",
+    "bots_to_vote_for": 
+        [
+            "Karuta",
+            "Ostra"
+        ]
+}

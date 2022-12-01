@@ -16,6 +16,7 @@ import { Vector } from "ghost-cursor/lib/math";
     try 
     {
         const wsEndPoint : string = process.argv[4];
+        console.log(`Connecting to endpoint ${wsEndPoint}`);
         var browser : Browser = await initializeBrower(wsEndPoint);
         await voteOnTopGG(browser);
     }
