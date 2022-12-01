@@ -3,7 +3,7 @@
 import { createCursor, GhostCursor, installMouseHelper } from "ghost-cursor"
 import ghostcursor from "ghost-cursor"
 import puppeteer_e from "puppeteer-extra"
-import puppeteer, { Browser } from "puppeteer"
+import puppeteer, { Browser, EVALUATION_SCRIPT_URL } from "puppeteer"
 import { KnownDevices } from "puppeteer"
 import { DEFAULT_INTERCEPT_RESOLUTION_PRIORITY } from 'puppeteer';
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
@@ -15,7 +15,9 @@ import { Vector } from "ghost-cursor/lib/math";
 (async () => {
     try 
     {
-        await voteOnTopGG();
+        const wsEndPoint : string = process.argv[4];
+        var browser : Browser = await initializeBrower(wsEndPoint);
+        await voteOnTopGG(browser);
     }
     catch (err)
     {
@@ -23,64 +25,87 @@ import { Vector } from "ghost-cursor/lib/math";
     }
     finally 
     {
-        //close browser
+        try
+        {
+            await browser!.close();
+        } 
+        catch (err)
+        {}
     }
   })();
 
-  async function voteOnTopGG() 
+  async function voteOnTopGG(browser : puppeteer.Browser) 
   {
-      // 251239170058616833 kotoba
-      // 646937666251915264 karuta
-      // 905658191659040808 ostra
-      // 945683386100514827 nero bot
-      const botID : string = "905658191659040808";
-      const url : string = `https://top.gg/bot/${botID}/vote`;
-      const email : string = process.argv[2];
-      const password : string = process.argv[3];
-      const wsEndPoint : string = process.argv[4];
-  
-  
-      const browser : Browser = await initializeBrower(wsEndPoint);
-      const page : puppeteer.Page = await browser.newPage();
-      page.setDefaultTimeout(300000);
-  
-      const cursor : ghostcursor.GhostCursor = createCursor(page);
-  
-      
-      await installMouseHelper(page);
-  
-      await page.goto(url);
-      
-      if (await needsLoggedIn(page))
-      {
-          await clickLoginButtonOnTopGG(page, cursor);
-  
-          if (await onAuthPage(page))
-          {
-              await clickAuthButton(page, cursor);
-          }
-          else 
-          {
-              await loginOntoDiscord(page, cursor, email, password);
-              await clickAuthButton(page, cursor);
-          }
-      }
+    const botID : string = process.argv[5];
+    const url : string = `https://top.gg/bot/${botID}/vote`;
+    const email : string = process.argv[2];
+    const password : string = process.argv[3];
 
-      await sleep(10 * 1000);
+    console.log("Recieved the following input: ");
+    console.log(`Username: ${email}`);
+    console.log(`Password: ${password}`);
+    console.log(`Bot ID: ${botID}`);
 
-      let botName : string = await getBotName(page);
+    const page : puppeteer.Page = await browser.newPage();
+    page.setDefaultTimeout(300000);
 
-      const responseCallback = async (response : puppeteer.HTTPResponse) => {
-        if (response.request().method() === 'POST' && response.url().includes(`${botID}/vote`))
+    const cursor : ghostcursor.GhostCursor = createCursor(page);
+
+    
+    await installMouseHelper(page);
+
+    await page.goto(url);
+    
+
+    if (await gotCloudFared(page))
+    {
+        console.log(await getCloudFareErrInfo(page));
+        await sleep(5000);
+        return;
+    }
+
+    if (await checkAlreadyVoted(page))
+    {
+        console.log(`You have already voted for ${await getBotName(page)}. Exiting...`);
+        return;
+    }
+
+    if (await needsLoggedIn(page))
+    {
+        await clickLoginButtonOnTopGG(page, cursor);
+
+        if (await onAuthPage(page))
         {
-            if (response?.ok())
+            await clickAuthButton(page, cursor);
+        }
+        else 
+        {
+            await loginOntoDiscord(page, cursor, email, password);
+            await clickAuthButton(page, cursor);
+        }
+    }
+
+    await sleep(10 * 1000);
+
+    let botName : string = await getBotName(page);
+    console.log(`Attempting to vote for ${botName}...`);
+    
+    const responseCallback = async (response : puppeteer.HTTPResponse) => {
+        if (response.request().method() === 'POST')
+        {
+            if (response.url().includes(`${botID}/vote`))
             {
-                console.log(`Successfully voted for ${botName}`);
+                if (response?.ok())
+                    console.log(`Successfully voted for ${botName}`);
+                else 
+                {
+                    console.log(`Failed to vote for ${botName}. Response as follows.`);
+                    console.log(await response?.text());
+                }
             } 
             else 
             {
-                console.log(`Failed to vote for ${botName}. Response as follows.`);
-                console.log(await response?.text());
+                //console.log(`Other POST request: ${response.url()} with response ${response.status}`);
             }
         }
     }
@@ -88,11 +113,10 @@ import { Vector } from "ghost-cursor/lib/math";
     page.on('response', responseCallback);
 
     await clickVoteOnTopGG(page, cursor);
-    await sleep(5000, false);
+    await sleep(25000, false);
 
     page.off('response', responseCallback);
     await page.close();
-    await browser.close();
   };
   
 
@@ -129,6 +153,41 @@ async function slowType(page : puppeteer.Page, whatToType : string) {
         await page.keyboard.type(element, { delay: delayAmount });
     }
     return;
+};
+
+async function getInnerTextFromElementBySelector(page : puppeteer.Page, selector : string) : Promise<string> 
+{
+    let element : puppeteer.ElementHandle<Element> | null = await page.$(selector);
+
+    if (element == null)
+    {
+        console.log(`Failed to find element to extract innerHTML from with selector: ${selector}`);
+        return "ERR";
+    }
+
+    return await getInnerTextFromElement(element);
+}
+
+async function getInnerTextFromElement(element : puppeteer.ElementHandle<Element>) : Promise<string> 
+{
+    return await element.evaluate((e) => e.innerHTML);
+}
+
+async function getCloudFareErrInfo(page : puppeteer.Page) : Promise<string>
+{
+    let errorLabel : string = await getInnerTextFromElementBySelector(page, "span[class='inline-block']");
+    let errorNumber : string = await getInnerTextFromElementBySelector(page, "span[class='code-label']");
+    return `${errorLabel}: ${errorNumber}`;
+}
+
+
+async function gotCloudFared(page : puppeteer.Page) : Promise<boolean> 
+{
+    //cf-error-details
+    if (await page.$("div[class='cf-wrapper']"))
+        return true;
+    else
+        return false;
 };
 
 async function getBotName(page : puppeteer.Page) : Promise<string>
@@ -173,8 +232,23 @@ async function convertElementToCenteredVector(element : puppeteer.ElementHandle<
     return null;
 };
 
+async function checkAlreadyVoted(page : puppeteer.Page) : Promise<boolean>
+{
+    let element = await page.$x("//p[text()='You have already voted']");
+
+    if (element.length)
+        return true;
+    else
+        return false;
+}
+
+
 async function clickElementWithGhostCursor(cursor : ghostcursor.GhostCursor, element : puppeteer.ElementHandle<Node> | puppeteer.ElementHandle<Element> | null, clickOptions : ghostcursor.ClickOptions | undefined = undefined) : Promise<void>
 {
+    if (element == null)
+    {
+        console.log ("Tried to click null element!");
+    }
     await cursor.click(element as puppeteer.ElementHandle<Element>, clickOptions);
     return;
 };
@@ -225,18 +299,18 @@ async function clickElementWithGhostCursorBySelector(page : puppeteer.Page, curs
 
 async function initializeBrower(wsEndpoint : string) : Promise<Browser>
 {
- /*   
+  
     puppeteer_e.use(
         AdblockerPlugin({
           interceptResolutionPriority: DEFAULT_INTERCEPT_RESOLUTION_PRIORITY,
           blockTrackers: true
         })
       );
-    
+    /*
     const stealthPlugin = require('puppeteer-extra-plugin-stealth')();
 
     puppeteer_e.use(stealthPlugin);
-*/
+    */
     return await puppeteer_e.connect({browserWSEndpoint : wsEndpoint});
 };
 
@@ -331,8 +405,8 @@ async function clickAuthButton(page : puppeteer.Page, cursor : GhostCursor) : Pr
 async function clickVoteOnTopGG(page : puppeteer.Page, cursor : GhostCursor) : Promise<void>
 {
     console.log("Waiting for Top.gg...");
-    await Promise.any([page.waitForNetworkIdle(), sleep(10 * 1000)]);
-    console.log("Finished waiting for page.");
+    await Promise.any([page.waitForNetworkIdle(), sleep(20 * 1000)]);
+    console.log("\nFinished waiting for page.");
 
     await page.evaluate("window.readyToVote();");
 
@@ -341,7 +415,7 @@ async function clickVoteOnTopGG(page : puppeteer.Page, cursor : GhostCursor) : P
     //await sleep((Math.random() * 1000) + 200);
     console.log("Clicking vote button...");
 
-    clickElementWithGhostCursor(cursor, voteButton);
+    await clickElementWithGhostCursor(cursor, voteButton);
 
     console.log("Vote button clicked.");
 
