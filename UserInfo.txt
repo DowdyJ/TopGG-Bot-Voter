@@ -1,7 +1,7 @@
 {
     "discord_username":"johndoe@example.com",
     "discord_password":"password",
-    "real_screen":"TRUE",
+    "real_screen":"FALSE",
     "bots_to_vote_for": 
         [
             "Karuta",
