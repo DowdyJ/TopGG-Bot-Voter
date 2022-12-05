@@ -20,7 +20,7 @@ After installing Node and cloning the repo, do the following.
     <li>The <code>bots_to_vote_for</code> field is a list of bot names as listed in the <code>bots.txt</code> file. If you'd like to vote for other bots than the ones included in that file, make sure to edit it and add bot ids. You can get the bot id either from within Discord or by going to their voting link and extracting the number from the URL.</li>
   </ul>
 </li>
-<li>Run <code>./run.sh</code>.</li>
+<li>Run <code>./run.sh</code>. After initial setup, this is the only step you need to do.</li>
 </ol>
 <br>
 That should be all you need to do! Due to how Puppeteer is setup, your cookies are not wiped after each use. If you want to reset this (such as to login as another user) run <code>./freshrun.sh</code>. <br>
