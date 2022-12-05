@@ -1,28 +1,100 @@
-
-
 import { createCursor, GhostCursor, installMouseHelper } from "ghost-cursor"
 import ghostcursor from "ghost-cursor"
 import puppeteer_e from "puppeteer-extra"
-import puppeteer, { Browser, EVALUATION_SCRIPT_URL } from "puppeteer"
-import { KnownDevices } from "puppeteer"
+import puppeteer, { Browser } from "puppeteer"
 import { DEFAULT_INTERCEPT_RESOLUTION_PRIORITY } from 'puppeteer';
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
-import { executablePath } from 'puppeteer';
 import { Vector } from "ghost-cursor/lib/math";
 
+const BOLD = '\u001b[1m';
+const ITALIC = '\u001b[3m';
+const UNDERLINE = '\u001b[4m';
+const BLUE = '\u001b[34m';
+const RED = '\u001b[31m';
+const GREEN = '\u001b[32m';
+const YELLOW = '\u001b[33m';
+const RESET = '\u001b[0m';
 
+enum MessageType 
+{
+    INFO,
+    SUCCESS,
+    WARNING,
+    ERROR,
+    NONE
+}
+
+function logSuccess(message : string) : void 
+{
+    console.log(`${RESET}${GREEN}${BOLD}[ SUCCESS ]${RESET} ${message}`);
+}
+
+function logError(message : string) : void
+{
+    console.log(`${RESET}${RED}${BOLD}[  ERROR  ]${RESET} ${message}`);
+}
+
+function logWarning(message : string) : void 
+{
+    console.log(`${RESET}${YELLOW}${BOLD}[ WARNING ]${RESET} ${message}`);
+}
+
+function logInfo(message : string) : void 
+{
+    console.log(`${RESET}${BLUE}${BOLD}[  INFO   ]${RESET} ${message}`);
+}
+
+function log(message : string, messageType : MessageType = MessageType.INFO) : void
+{
+    switch (messageType) {
+        case MessageType.INFO:
+            logInfo(message);
+            break;
+        case MessageType.SUCCESS:
+            logSuccess(message);
+            break;
+        case MessageType.WARNING:
+            logWarning(message);
+            break;
+        case MessageType.ERROR:
+            logError(message);
+            break;
+        case MessageType.NONE:
+            console.log(message);
+            break;
+        default:
+            logError("Ran default case in logger.");
+            break;
+    }
+}
 
 (async () => {
     try 
     {
         const wsEndPoint : string = process.argv[4];
-        console.log(`Connecting to endpoint ${wsEndPoint}`);
+        log(`Connecting to endpoint ${wsEndPoint}`);
         var browser : Browser = await initializeBrower(wsEndPoint);
-        await voteOnTopGG(browser);
+
+        const wipeLocalStorage : string = process.argv[6];
+        if (wipeLocalStorage === "TRUE")
+        {
+            log("Wiping stored data (e.g. login data)", MessageType.INFO);
+            let page : puppeteer.Page = await browser.newPage();
+            await page.goto("https://www.top.gg");
+            await page.evaluate(() => {window.localStorage.clear()});
+            await page.deleteCookie(...(await page.cookies()));
+            await sleep(40*1000);
+            await page.close();
+        }
+
+        const botID : string = process.argv[5];
+        const email : string = process.argv[2];
+        const password : string = process.argv[3];
+        await voteOnTopGG(browser, email, password, botID);
     }
     catch (err)
     {
-        console.log(err);
+        log(err as string, MessageType.ERROR);
     }
     finally 
     {
@@ -31,95 +103,101 @@ import { Vector } from "ghost-cursor/lib/math";
             await browser!.close();
         } 
         catch (err)
-        {}
+        {
+            log(err as string, MessageType.ERROR);
+        }
     }
   })();
 
-  async function voteOnTopGG(browser : puppeteer.Browser) 
+  /**
+   * This will attempt to log in through Discord if necessary, then submit a vote on Top.gg for the bot specified by botID.
+   * @param browser A browser instance connected to Puppeteer.
+   * @param email The user's Discord email address.
+   * @param password The user's Discord password
+   * @param botID The ID of the bot to vote for.
+   * @returns void
+   */
+  async function voteOnTopGG(browser : puppeteer.Browser, email : string, password : string, botID : string) 
   {
-    const botID : string = process.argv[5];
     const url : string = `https://top.gg/bot/${botID}/vote`;
-    const email : string = process.argv[2];
-    const password : string = process.argv[3];
 
-    console.log("Recieved the following input: ");
-    console.log(`Username: ${email}`);
-    console.log(`Password: ${password}`);
-    console.log(`Bot ID: ${botID}`);
+    log("Recieved the following input:");
+    
+    let censoredEmail = email[0] + email[1];
+    for (let i = 2; i < email.length; i++) {
+        const element = email[i];
+        if (element === "@")
+        {
+            censoredEmail += email.slice(i);
+            break;
+        }
+        censoredEmail += "*";
+    }
+
+    let censoredPassword = password[0] + password[1];
+    for (let i = 2; i < password.length; i++) {
+        censoredPassword += "*";
+    }
+
+    log(`Username: ${censoredEmail}`);
+    log(`Password: ${censoredPassword}`);
+    log(`Bot ID: ${botID}`);
 
     const page : puppeteer.Page = await browser.newPage();
     page.setDefaultTimeout(300000);
 
     const cursor : ghostcursor.GhostCursor = createCursor(page);
 
-    
     await installMouseHelper(page);
 
     await page.goto(url);
     
 
-    if (await gotCloudFared(page))
+    if (await _gotCloudFlared(page))
     {
-        console.log(await getCloudFareErrInfo(page));
+        log("Encountered CloudFlare error. This may be caused by too many connections. Details are below.", MessageType.ERROR);
+        log(await _getCloudFlareErrInfo(page), MessageType.NONE);
         await sleep(5000);
         return;
     }
 
-    if (await checkAlreadyVoted(page))
+    if (await _checkAlreadyVoted(page))
     {
-        console.log(`You have already voted for ${await getBotName(page)}. Exiting...`);
+        log(`You have already voted for ${await getBotName(page)}. Exiting...`, MessageType.WARNING);
         return;
     }
 
-    if (await needsLoggedIn(page))
+    if (await _needsLoggedIn(page))
     {
-        await clickLoginButtonOnTopGG(page, cursor);
+        await _clickLoginButtonOnTopGG(page, cursor);
 
-        if (await onAuthPage(page))
+        if (await _onAuthPage(page))
         {
-            await clickAuthButton(page, cursor);
+            await _clickAuthButton(page, cursor);
         }
         else 
         {
-            await loginOntoDiscord(page, cursor, email, password);
-            await clickAuthButton(page, cursor);
+            await _loginOntoDiscord(page, cursor, email, password);
+            await _clickAuthButton(page, cursor);
         }
     }
 
     await sleep(10 * 1000);
+    var lastVoteSuccess : boolean | null = await _handleVotingPostLogin(page, cursor, botID);
 
-    let botName : string = await getBotName(page);
-    console.log(`Attempting to vote for ${botName}...`);
-    
-    const responseCallback = async (response : puppeteer.HTTPResponse) => {
-        if (response.request().method() === 'POST')
-        {
-            if (response.url().includes(`${botID}/vote`))
-            {
-                if (response?.ok())
-                    console.log(`Successfully voted for ${botName}`);
-                else 
-                {
-                    console.log(`Failed to vote for ${botName}. Response as follows.`);
-                    console.log(await response?.text());
-                }
-            } 
-            else 
-            {
-                //console.log(`Other POST request: ${response.url()} with response ${response.status}`);
-            }
-        }
+    if (lastVoteSuccess == null)
+    {
+        log("Did not recieve failure nor success repsonse from server. Retrying vote process.", MessageType.WARNING)
+        await page.reload();    
+        await Promise.any([page.waitForNetworkIdle(), sleep(20 * 1000, false)]);
+        lastVoteSuccess = await _handleVotingPostLogin(page, cursor, botID);
+
+        if (lastVoteSuccess == null)
+            log("Did not recieve failure nor success repsonse from server again. Skipping.", MessageType.ERROR);
     }
 
-    page.on('response', responseCallback);
-
-    await clickVoteOnTopGG(page, cursor);
-    await sleep(25000, false);
-
-    page.off('response', responseCallback);
     await page.close();
   };
-  
 
   async function sleep(ms : number, log : boolean = true) {
     let totalSecondsToWait : number = ms / 1000;
@@ -174,15 +252,56 @@ async function getInnerTextFromElement(element : puppeteer.ElementHandle<Element
     return await element.evaluate((e) => e.innerHTML);
 }
 
-async function getCloudFareErrInfo(page : puppeteer.Page) : Promise<string>
+  
+async function _handleVotingPostLogin(page : puppeteer.Page, cursor : GhostCursor, botID : string) : Promise<boolean | null>
+{
+  let lastVoteSuccess = null;
+  let botName : string = await getBotName(page);
+  log(`Attempting to vote for ${botName}...`);
+  
+  const responseCallback = async (response : puppeteer.HTTPResponse) => {
+      if (response.request().method() === 'POST')
+      {
+          if (response.url().includes(`${botID}/vote`))
+          {
+              if (response?.ok())
+              {
+                  log(`Successfully voted for ${botName}!`, MessageType.SUCCESS);
+                  lastVoteSuccess = true;
+              }
+              else 
+              {
+                  log(`Failed to vote for ${botName}. Response as follows.`, MessageType.WARNING);
+                  log(await response?.text());
+                  lastVoteSuccess = false;
+              }
+          } 
+          else 
+          {
+              //console.log(`Other POST request: ${response.url()} with response ${response.status}`);
+          }
+      }
+  }
+
+  page.on('response', responseCallback);
+
+  await clickVoteButtonOnTopGG(page, cursor);
+  await sleep(25000, false);
+
+  page.off('response', responseCallback);
+
+  return lastVoteSuccess;
+}
+
+
+async function _getCloudFlareErrInfo(page : puppeteer.Page) : Promise<string>
 {
     let errorLabel : string = await getInnerTextFromElementBySelector(page, "span[class='inline-block']");
     let errorNumber : string = await getInnerTextFromElementBySelector(page, "span[class='code-label']");
     return `${errorLabel}: ${errorNumber}`;
 }
 
-
-async function gotCloudFared(page : puppeteer.Page) : Promise<boolean> 
+async function _gotCloudFlared(page : puppeteer.Page) : Promise<boolean> 
 {
     //cf-error-details
     if (await page.$("div[class='cf-wrapper']"))
@@ -233,7 +352,12 @@ async function convertElementToCenteredVector(element : puppeteer.ElementHandle<
     return null;
 };
 
-async function checkAlreadyVoted(page : puppeteer.Page) : Promise<boolean>
+/**
+ * 
+ * @param page The page, which should be navigated to the Bot's Top.gg vote page.
+ * @returns TRUE if top.gg displays text indicating that the user has already voted for the bot. FALSE otherwise. Note this will sometimes return FALSE even if the user has voted for the bot already due to top.gg not specifying as much.
+ */
+async function _checkAlreadyVoted(page : puppeteer.Page) : Promise<boolean>
 {
     let element = await page.$x("//p[text()='You have already voted']");
 
@@ -248,7 +372,7 @@ async function clickElementWithGhostCursor(cursor : ghostcursor.GhostCursor, ele
 {
     if (element == null)
     {
-        console.log ("Tried to click null element!");
+        log("Tried to click null element!", MessageType.WARNING);
     }
     await cursor.click(element as puppeteer.ElementHandle<Element>, clickOptions);
     return;
@@ -315,40 +439,40 @@ async function initializeBrower(wsEndpoint : string) : Promise<Browser>
     return await puppeteer_e.connect({browserWSEndpoint : wsEndpoint});
 };
 
-async function needsLoggedIn(page : puppeteer.Page) : Promise<boolean> 
+async function _needsLoggedIn(page : puppeteer.Page) : Promise<boolean> 
 {
     await sleep(5000); //on page load
 
     var numberOfMatches : number = (await page.$x("//a[text()='Login to vote']")).length;
 
-    if (!!(numberOfMatches))
+    if (numberOfMatches)
     {
-        console.log("User not signed in.")
+        log("User not signed in.")
         return true;
     }
         
 
-    console.log("User already signed in.")
+    log("User already signed in.")
     return false;
 };
 
-async function clickLoginButtonOnTopGG(page : puppeteer.Page, cursor : GhostCursor) : Promise<void>
+async function _clickLoginButtonOnTopGG(page : puppeteer.Page, cursor : GhostCursor) : Promise<void>
 {
-    console.log("Attempting to click log in button on top.gg...");
+    log("Attempting to click log in button on top.gg...");
     let loginToVoteButton : puppeteer.ElementHandle<Node> | null = await page.waitForXPath('//a[text()="Login to vote"]');
 
     if (loginToVoteButton == null)
     {
-        console.log('Failed to click login button on Top.gg');
+        log('Failed to click login button on Top.gg', MessageType.ERROR);
         return;
     }
 
     await clickElementWithGhostCursor(cursor, loginToVoteButton);
-    console.log("Log in button clicked.");
+    log("Log in button clicked.");
     return;
 };
 
-async function onAuthPage(page : puppeteer.Page) : Promise<boolean> 
+async function _onAuthPage(page : puppeteer.Page) : Promise<boolean> 
 {
     await sleep(3000);
 
@@ -356,14 +480,14 @@ async function onAuthPage(page : puppeteer.Page) : Promise<boolean>
 
     if (authorizeButton.length == 0)
     {
-        console.log("Assuming not on authorization page...");
+        log("Assuming not on authorization page...");
         return false;
     }
-    console.log("Assuming on authorization page...");
+    log("Assuming on authorization page...");
     return true;
 }
 
-async function loginOntoDiscord(page : puppeteer.Page, cursor : GhostCursor, userName : string, password : string) 
+async function _loginOntoDiscord(page : puppeteer.Page, cursor : GhostCursor, userName : string, password : string) 
 {
     //Discord login page
     let emailField : puppeteer.ElementHandle<Element> | null = await page.waitForSelector("input[name='email']");
@@ -371,7 +495,7 @@ async function loginOntoDiscord(page : puppeteer.Page, cursor : GhostCursor, use
 
     if (emailField == null || passwordField == null)
     {
-        console.log("Failed to get discord's email and password fields");
+        log("Failed to get discord's email and password fields", MessageType.ERROR);
         return;
     }
 
@@ -384,14 +508,14 @@ async function loginOntoDiscord(page : puppeteer.Page, cursor : GhostCursor, use
     await page.keyboard.type(String.fromCharCode(13)); //enter
 };
 
-async function clickAuthButton(page : puppeteer.Page, cursor : GhostCursor) : Promise<void>
+async function _clickAuthButton(page : puppeteer.Page, cursor : GhostCursor) : Promise<void>
 {
-    console.log("Trying to click auth button...");
+    log("Trying to click auth button...");
     let authorizeButton : puppeteer.ElementHandle<Node> | null =  await page.waitForXPath("//div[text()='Authorize']");
 
     if (authorizeButton == null)
     {
-        console.log("Failed to get authorize button on discord. Aborting...");
+        log("Failed to get authorize button on discord. Aborting.", MessageType.ERROR);
         return;
     }
 
@@ -400,25 +524,23 @@ async function clickAuthButton(page : puppeteer.Page, cursor : GhostCursor) : Pr
     await cursor.move("div[class*='oauth2Wrapper']")
     await cursor.click((authorizeButton as puppeteer.ElementHandle<Element>));
 
-    console.log("Auth button clicked.");
+    log("Auth button clicked.");
 };
 
-async function clickVoteOnTopGG(page : puppeteer.Page, cursor : GhostCursor) : Promise<void>
+async function clickVoteButtonOnTopGG(page : puppeteer.Page, cursor : GhostCursor) : Promise<void>
 {
-    console.log("Waiting for Top.gg...");
-    await Promise.any([page.waitForNetworkIdle(), sleep(20 * 1000)]);
-    console.log("\nFinished waiting for page.");
+    log("Waiting for Top.gg...", MessageType.NONE);
+    await Promise.any([page.waitForNetworkIdle(), sleep(20 * 1000, false)]);
+    log("\nFinished waiting for page.", MessageType.NONE);
 
     await page.evaluate("window.readyToVote();");
 
     let voteButton : puppeteer.ElementHandle<Node> | null = await page.waitForXPath("//button[text()='Vote']");
 
-    //await sleep((Math.random() * 1000) + 200);
-    console.log("Clicking vote button...");
+    log("Clicking vote button...");
 
     await clickElementWithGhostCursor(cursor, voteButton);
-
-    console.log("Vote button clicked.");
-
+    
+    log("Vote button clicked.");
     return;
 };

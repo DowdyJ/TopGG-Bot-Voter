@@ -11,9 +11,13 @@ async function main()
         console.log("Download finished.");
         return;
     }
+    else 
+    {
+        console.log("Chromium already downloaded, skipping.");
+    }
 }
 
-async () =>
+(async () =>
 {
     await main();
-}
+})();

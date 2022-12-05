@@ -1,0 +1,1 @@
+exec ./run.sh TRUE
