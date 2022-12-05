@@ -183,16 +183,16 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
     }
 
     await sleep(10 * 1000);
-    var lastVoteSuccess : boolean | null = await _handleVotingPostLogin(page, cursor, botID);
+    let voteSuccess : boolean | null = await _handleVotingPostLogin(page, cursor, botID);
 
-    if (lastVoteSuccess == null)
+    if (voteSuccess == null)
     {
         log("Did not recieve failure nor success repsonse from server. Retrying vote process.", MessageType.WARNING)
         await page.reload();    
         await Promise.any([page.waitForNetworkIdle(), sleep(20 * 1000, false)]);
-        lastVoteSuccess = await _handleVotingPostLogin(page, cursor, botID);
+        voteSuccess = await _handleVotingPostLogin(page, cursor, botID);
 
-        if (lastVoteSuccess == null)
+        if (voteSuccess == null)
             log("Did not recieve failure nor success repsonse from server again. Skipping.", MessageType.ERROR);
     }
 
@@ -255,7 +255,7 @@ async function getInnerTextFromElement(element : puppeteer.ElementHandle<Element
   
 async function _handleVotingPostLogin(page : puppeteer.Page, cursor : GhostCursor, botID : string) : Promise<boolean | null>
 {
-  let lastVoteSuccess = null;
+  let lastVoteSuccess : boolean | null = null;
   let botName : string = await getBotName(page);
   log(`Attempting to vote for ${botName}...`);
   
@@ -286,7 +286,9 @@ async function _handleVotingPostLogin(page : puppeteer.Page, cursor : GhostCurso
   page.on('response', responseCallback);
 
   await clickVoteButtonOnTopGG(page, cursor);
-  await sleep(25000, false);
+  
+  for (let i = 0; i <= 25 && lastVoteSuccess === null; i++)
+    await sleep(1000, false);
 
   page.off('response', responseCallback);
 
