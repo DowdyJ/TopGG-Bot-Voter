@@ -1,7 +1,7 @@
 import { createCursor, GhostCursor, installMouseHelper } from "ghost-cursor"
 import ghostcursor from "ghost-cursor"
 import puppeteer_e from "puppeteer-extra"
-import puppeteer, { Browser } from "puppeteer"
+import puppeteer, { BoundingBox, Browser } from "puppeteer"
 import { DEFAULT_INTERCEPT_RESOLUTION_PRIORITY } from 'puppeteer';
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
 import { Vector } from "ghost-cursor/lib/math";
@@ -178,6 +178,31 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
         else 
         {
             await _loginOntoDiscord(page, cursor, email, password);
+            await sleep(5000);
+            if (await _gotCaptchaed(page)) 
+            {
+                await _clickCaptchaBox(page, cursor);
+                await sleep(5000);
+                if (await _gotCaptchaed(page))
+                {
+                    log("Failed captcha challenge. Trying again...", MessageType.WARNING);
+                    await _clickCaptchaBox(page, cursor);
+                    await sleep(5000);
+                    if (await _gotCaptchaed(page))
+                    {
+                        log("Failed captcha challenge again. Please try logging in manually in the Chromium instance and Authorizing. This should save your login for future attempts.", MessageType.ERROR);
+                        return
+                    } else 
+                    {
+                        log("Successfully bypassed captcha challenge!");
+                    }
+                } else 
+                {
+                    log("Successfully bypassed captcha challenge!");
+                }
+            }
+        
+
             await _clickAuthButton(page, cursor);
         }
     }
@@ -252,6 +277,33 @@ async function getInnerTextFromElement(element : puppeteer.ElementHandle<Element
     return await element.evaluate((e) => e.innerHTML);
 }
 
+async function _gotCaptchaed(page : puppeteer.Page) : Promise<boolean>
+{
+    let captchaBox = await page.$("iframe[src*='hcaptcha']");
+    if (captchaBox !== null)
+    {
+        log("Encountered hCaptcha challenge.", MessageType.WARNING);
+        return true;
+    }
+    return false;
+}
+
+async function _clickCaptchaBox(page : puppeteer.Page, cursor : GhostCursor) : Promise<void> 
+{
+    log("Clicking captcha box...", MessageType.INFO);
+    let captchaBox = await page.$("iframe[src*='hcaptcha']");
+    let captchaBoundingBox : BoundingBox | null | undefined = (await captchaBox?.boundingBox());
+    if (captchaBoundingBox == null)
+    {
+        log("Failed to find captcha bounding box.", MessageType.ERROR);
+        return
+    }
+
+    let clickVector : Vector = {x: (captchaBoundingBox?.x as number + (captchaBoundingBox?.width as number * 0.1)), y: (captchaBoundingBox?.y as number + ((captchaBoundingBox?.height as number) / 2))}
+    await cursor.moveTo(clickVector);
+    await sleep(1000, false);
+    await cursor.click(undefined, {paddingPercentage:0});
+}
   
 async function _handleVotingPostLogin(page : puppeteer.Page, cursor : GhostCursor, botID : string) : Promise<boolean | null>
 {
@@ -433,11 +485,11 @@ async function initializeBrower(wsEndpoint : string) : Promise<Browser>
           blockTrackers: true
         })
       );
-    /*
+    
     const stealthPlugin = require('puppeteer-extra-plugin-stealth')();
 
     puppeteer_e.use(stealthPlugin);
-    */
+    
     return await puppeteer_e.connect({browserWSEndpoint : wsEndpoint});
 };
 
@@ -512,8 +564,13 @@ async function _loginOntoDiscord(page : puppeteer.Page, cursor : GhostCursor, us
 
 async function _clickAuthButton(page : puppeteer.Page, cursor : GhostCursor) : Promise<void>
 {
-    log("Trying to click auth button...");
-    let authorizeButton : puppeteer.ElementHandle<Node> | null =  await page.waitForXPath("//div[text()='Authorize']");
+    log("Trying to find auth button...");
+    let authorizeButton : puppeteer.ElementHandle<Node> | null = null;
+    try {
+        authorizeButton =  await page.waitForXPath("//div[text()='Authorize']", { timeout:60000});
+    } catch (err) {
+        log(err as string, MessageType.ERROR);
+    }
 
     if (authorizeButton == null)
     {
