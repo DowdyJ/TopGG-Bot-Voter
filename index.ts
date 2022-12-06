@@ -5,6 +5,7 @@ import puppeteer, { BoundingBox, Browser } from "puppeteer"
 import { DEFAULT_INTERCEPT_RESOLUTION_PRIORITY } from 'puppeteer';
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
 import { Vector } from "ghost-cursor/lib/math";
+import fs from "fs";
 
 const BOLD = '\u001b[1m';
 const ITALIC = '\u001b[3m';
@@ -15,6 +16,17 @@ const GREEN = '\u001b[32m';
 const YELLOW = '\u001b[33m';
 const RESET = '\u001b[0m';
 
+enum VoteStatus 
+{
+    SUCCESS = 0,
+    CLOUDFLARE_FAIL,
+    LOGIN_FAIL,
+    ALREADY_VOTED_FAIL,
+    CAPTCHA_FAIL,
+    OTHER_CRIT_FAIL,
+    OTHER_RETRY_FAIL
+}
+
 enum MessageType 
 {
     INFO,
@@ -22,6 +34,11 @@ enum MessageType
     WARNING,
     ERROR,
     NONE
+}
+
+function logToFile(message : string) : void 
+{
+    fs.writeFileSync("log.txt", message, { flag:"as" });
 }
 
 function logSuccess(message : string) : void 
@@ -90,7 +107,31 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
         const botID : string = process.argv[5];
         const email : string = process.argv[2];
         const password : string = process.argv[3];
-        await voteOnTopGG(browser, email, password, botID);
+        
+        let votingResult : VoteStatus = await voteOnTopGG(browser, email, password, botID);
+
+        if (votingResult === VoteStatus.CLOUDFLARE_FAIL)
+        {
+            log("Waiting 5 minutes before trying again...");
+            sleep(5 * 60 * 1000);
+            votingResult = await voteOnTopGG(browser, email, password, botID);
+
+            if (votingResult === VoteStatus.SUCCESS)
+            {
+                return;
+            } 
+            else if (votingResult === VoteStatus.CLOUDFLARE_FAIL)
+            {
+                log("CloudFlare rejected the connection again. Try waiting a while before trying again.", MessageType.ERROR);
+                return;
+            } 
+        }
+        // One more chance for non-critical fails
+        if (votingResult === VoteStatus.LOGIN_FAIL || votingResult === VoteStatus.OTHER_RETRY_FAIL)
+        {
+            await voteOnTopGG(browser, email, password, botID);
+            return;
+        }
     }
     catch (err)
     {
@@ -117,7 +158,7 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
    * @param botID The ID of the bot to vote for.
    * @returns void
    */
-  async function voteOnTopGG(browser : puppeteer.Browser, email : string, password : string, botID : string) 
+  async function voteOnTopGG(browser : puppeteer.Browser, email : string, password : string, botID : string) : Promise<VoteStatus>
   {
     const url : string = `https://top.gg/bot/${botID}/vote`;
 
@@ -158,13 +199,13 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
         log("Encountered CloudFlare error. This may be caused by too many connections. Details are below.", MessageType.ERROR);
         log(await _getCloudFlareErrInfo(page), MessageType.NONE);
         await sleep(5000);
-        return;
+        return VoteStatus.CLOUDFLARE_FAIL;
     }
 
     if (await _checkAlreadyVoted(page))
     {
         log(`You have already voted for ${await getBotName(page)}. Exiting...`, MessageType.WARNING);
-        return;
+        return VoteStatus.ALREADY_VOTED_FAIL;
     }
 
     if (await _needsLoggedIn(page))
@@ -191,7 +232,7 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
                     if (await _gotCaptchaed(page))
                     {
                         log("Failed captcha challenge again. Please try logging in manually in the Chromium instance and Authorizing. This should save your login for future attempts.", MessageType.ERROR);
-                        return
+                        return VoteStatus.CAPTCHA_FAIL;
                     } else 
                     {
                         log("Successfully bypassed captcha challenge!");
@@ -216,12 +257,23 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
         await page.reload();    
         await Promise.any([page.waitForNetworkIdle(), sleep(20 * 1000, false)]);
         voteSuccess = await _handleVotingPostLogin(page, cursor, botID);
-
-        if (voteSuccess == null)
-            log("Did not recieve failure nor success repsonse from server again. Skipping.", MessageType.ERROR);
     }
 
     await page.close();
+    if (voteSuccess == null)
+    {
+        log("Did not recieve failure nor success repsonse from server again. Aborting.", MessageType.ERROR);
+        logToFile(`Noncritical failure to vote for ${botID} at ${new Date()}.`);
+        return VoteStatus.OTHER_RETRY_FAIL;
+    } 
+    else if (voteSuccess === false)
+    {
+        return VoteStatus.OTHER_CRIT_FAIL;    
+    } 
+    else 
+    {
+        return VoteStatus.SUCCESS;
+    }
   };
 
   async function sleep(ms : number, log : boolean = true) {
@@ -333,7 +385,8 @@ async function _handleVotingPostLogin(page : puppeteer.Page, cursor : GhostCurso
               //console.log(`Other POST request: ${response.url()} with response ${response.status}`);
           }
       }
-  }
+    }
+  
 
   page.on('response', responseCallback);
 
@@ -344,6 +397,14 @@ async function _handleVotingPostLogin(page : puppeteer.Page, cursor : GhostCurso
 
   page.off('response', responseCallback);
 
+  if (lastVoteSuccess === true)
+  {
+      logToFile(`Successfully voted for ${botName} : ID ${botID} at ${new Date()}`);
+  } 
+  else if (lastVoteSuccess === false)
+  {
+      logToFile(`Failed to vote for ${botName} : ID ${botID} at ${new Date()}`);
+  }
   return lastVoteSuccess;
 }
 
@@ -486,9 +547,9 @@ async function initializeBrower(wsEndpoint : string) : Promise<Browser>
         })
       );
     
-    const stealthPlugin = require('puppeteer-extra-plugin-stealth')();
+    //const stealthPlugin = require('puppeteer-extra-plugin-stealth')();
 
-    puppeteer_e.use(stealthPlugin);
+    //puppeteer_e.use(stealthPlugin);
     
     return await puppeteer_e.connect({browserWSEndpoint : wsEndpoint});
 };
