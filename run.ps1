@@ -3,7 +3,7 @@ $USERNAME = $UserInfoJson.discord_username
 $PASSWORD = $UserInfoJson.discord_password
 $REALSCREEN = $UserInfoJson.real_screen
 $BOTSTOVOTEFOR = $UserInfoJson.bots_to_vote_for
-
+$TWO_CAPTCHA_KEY = $UserInfoJson.twocaptchaAPIKey
 $BOTNAME_TOID_CONVERSION = Get-Content -Path .\bots.txt -Raw | ConvertFrom-Json
 
 
@@ -45,7 +45,7 @@ $BOTSTOVOTEFOR | ForEach-Object {
     $WEBSOCKETJSON = Invoke-WebRequest -Uri http://127.0.0.1:9222/json/version | ConvertFrom-Json
     $WEBSOCKET = $WEBSOCKETJSON.webSocketDebuggerUrl
     $BOTID = $BOTNAME_TOID_CONVERSION.$_ 
-    node index.js $USERNAME $PASSWORD $WEBSOCKET $BOTID $LOGOUT
+    node index.js $USERNAME $PASSWORD $WEBSOCKET $BOTID $LOGOUT $TWO_CAPTCHA_KEY
 }
 
 pause

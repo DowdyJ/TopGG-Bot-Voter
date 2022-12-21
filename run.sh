@@ -22,6 +22,7 @@ do
     USERNAME=$(cat UserInfo.txt | jq -r .discord_username)
     PASSWORD=$(cat UserInfo.txt | jq -r .discord_password)
     LOGOUT="FALSE"
+    CAPTCHA_API_KEY=$(cat UserInfo.txt | jq -r .twocaptchaAPIKey)
 
     if [ $# -ne 0 ]
     then
@@ -33,5 +34,6 @@ do
     $PASSWORD \
     $(curl -s http://127.0.0.1:9222/json/version | jq -r .webSocketDebuggerUrl) \
     $(cat bots.txt | jq -r .${BOTNAME,,}) \
-    $LOGOUT
+    $LOGOUT \
+    $CAPTCHA_API_KEY
 done

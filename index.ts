@@ -6,6 +6,10 @@ import { DEFAULT_INTERCEPT_RESOLUTION_PRIORITY } from 'puppeteer';
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
 import { Vector } from "ghost-cursor/lib/math";
 import fs from "fs";
+import { SolveRecaptchasResult } from "puppeteer-extra-plugin-recaptcha/dist/types";
+import { PuppeteerExtraPluginRecaptcha } from "puppeteer-extra-plugin-recaptcha";
+import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha'
+
 
 const BOLD = '\u001b[1m';
 const ITALIC = '\u001b[3m';
@@ -90,7 +94,20 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
     {
         const wsEndPoint : string = process.argv[4];
         log(`Connecting to endpoint ${wsEndPoint}`);
-        var browser : Browser = await initializeBrower(wsEndPoint);
+
+        let _2captchaAPIKey : string = process.argv[7];
+
+        if (_2captchaAPIKey.length !== 32)
+        {
+            log("Assuming not using 2Captcha's Service.", MessageType.INFO);
+            _2captchaAPIKey = '';
+        } 
+        else 
+        {
+            log("Using 2Captcha.", MessageType.INFO);
+        }
+
+        var browser : Browser = await initializeBrower(wsEndPoint, _2captchaAPIKey);
 
         const wipeLocalStorage : string = process.argv[6];
         if (wipeLocalStorage === "TRUE")
@@ -104,17 +121,18 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
             await page.close();
         }
 
+
         const botID : string = process.argv[5];
         const email : string = process.argv[2];
         const password : string = process.argv[3];
         
-        let votingResult : VoteStatus = await voteOnTopGG(browser, email, password, botID);
+        let votingResult : VoteStatus = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey);
 
         if (votingResult === VoteStatus.CLOUDFLARE_FAIL)
         {
             log("Waiting 5 minutes before trying again...");
             sleep(5 * 60 * 1000);
-            votingResult = await voteOnTopGG(browser, email, password, botID);
+            votingResult = await voteOnTopGG(browser, email, password, botID,_2captchaAPIKey);
 
             if (votingResult === VoteStatus.SUCCESS)
             {
@@ -129,7 +147,7 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
         // One more chance for non-critical fails
         if (votingResult === VoteStatus.LOGIN_FAIL || votingResult === VoteStatus.OTHER_RETRY_FAIL)
         {
-            await voteOnTopGG(browser, email, password, botID);
+            await voteOnTopGG(browser, email, password, botID,_2captchaAPIKey);
             return;
         }
     }
@@ -158,7 +176,7 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
    * @param botID The ID of the bot to vote for.
    * @returns void
    */
-  async function voteOnTopGG(browser : puppeteer.Browser, email : string, password : string, botID : string) : Promise<VoteStatus>
+  async function voteOnTopGG(browser : puppeteer.Browser, email : string, password : string, botID : string, _2captchaAPIKey : string) : Promise<VoteStatus>
   {
     const url : string = `https://top.gg/bot/${botID}/vote`;
 
@@ -220,43 +238,25 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
         {
             await _loginOntoDiscord(page, cursor, email, password);
             await sleep(5000);
-            if (await _gotCaptchaed(page)) 
+
+            if (!(await _bypassCaptchas(page, cursor, _2captchaAPIKey)))
             {
-                await _clickCaptchaBox(page, cursor);
-                await sleep(5000);
-                if (await _gotCaptchaed(page))
-                {
-                    log("Failed captcha challenge. Trying again...", MessageType.WARNING);
-                    await _clickCaptchaBox(page, cursor);
-                    await sleep(5000);
-                    if (await _gotCaptchaed(page))
-                    {
-                        log("Failed captcha challenge again. Please try logging in manually in the Chromium instance and Authorizing. This should save your login for future attempts.", MessageType.ERROR);
-                        return VoteStatus.CAPTCHA_FAIL;
-                    } else 
-                    {
-                        log("Successfully bypassed captcha challenge!");
-                    }
-                } else 
-                {
-                    log("Successfully bypassed captcha challenge!");
-                }
+                return VoteStatus.CAPTCHA_FAIL;
             }
-        
 
             await _clickAuthButton(page, cursor);
         }
     }
 
     await sleep(10 * 1000);
-    let voteSuccess : boolean | null = await _handleVotingPostLogin(page, cursor, botID);
+    let voteSuccess : boolean | null = await _handleVotingPostLogin(page, cursor, botID, _2captchaAPIKey);
 
     if (voteSuccess == null)
     {
         log("Did not recieve failure nor success repsonse from server. Retrying vote process.", MessageType.WARNING)
         await page.reload();    
         await Promise.any([page.waitForNetworkIdle(), sleep(20 * 1000, false)]);
-        voteSuccess = await _handleVotingPostLogin(page, cursor, botID);
+        voteSuccess = await _handleVotingPostLogin(page, cursor, botID, _2captchaAPIKey);
     }
 
     await page.close();
@@ -329,6 +329,49 @@ async function getInnerTextFromElement(element : puppeteer.ElementHandle<Element
     return await element.evaluate((e) => e.innerHTML);
 }
 
+
+async function _bypassCaptchas(page : puppeteer.Page, cursor : GhostCursor, _2captchaAPIKey : string) : Promise<boolean> 
+{
+    if (_2captchaAPIKey !== '')
+    {
+        var result : SolveRecaptchasResult = await page.solveRecaptchas();
+
+        if (result.error)
+        {
+            log(`2Captcha failure: ${result.error}`, MessageType.ERROR)
+            return false;
+        }
+
+        return true;
+    } 
+    else 
+    {
+        if (await _gotCaptchaed(page)) 
+        {
+            await _clickCaptchaBox(page, cursor);
+            await sleep(5000);
+            if (await _gotCaptchaed(page))
+            {
+                log("Failed captcha challenge. Trying again...", MessageType.WARNING);
+                await _clickCaptchaBox(page, cursor);
+                await sleep(5000);
+                if (await _gotCaptchaed(page))
+                {
+                    log("Failed captcha challenge again. Please try logging in manually in the Chromium instance and Authorizing. This should save your login for future attempts.", MessageType.ERROR);
+                    return false;
+                } else 
+                {
+                    log("Successfully bypassed captcha challenge!");
+                }
+            } else 
+            {
+                log("Successfully bypassed captcha challenge!");
+            }
+        }
+        return true;
+    }
+}
+
 async function _gotCaptchaed(page : puppeteer.Page) : Promise<boolean>
 {
     let captchaBox = await page.$("iframe[src*='hcaptcha']");
@@ -357,7 +400,7 @@ async function _clickCaptchaBox(page : puppeteer.Page, cursor : GhostCursor) : P
     await cursor.click(undefined, {paddingPercentage:0});
 }
   
-async function _handleVotingPostLogin(page : puppeteer.Page, cursor : GhostCursor, botID : string) : Promise<boolean | null>
+async function _handleVotingPostLogin(page : puppeteer.Page, cursor : GhostCursor, botID : string, _2captchaAPIKey : string) : Promise<boolean | null>
 {
   let lastVoteSuccess : boolean | null = null;
   let botName : string = await getBotName(page);
@@ -391,11 +434,16 @@ async function _handleVotingPostLogin(page : puppeteer.Page, cursor : GhostCurso
   page.on('response', responseCallback);
 
   await clickVoteButtonOnTopGG(page, cursor);
-  
+
   for (let i = 0; i <= 25 && lastVoteSuccess === null; i++)
     await sleep(1000, false);
 
   page.off('response', responseCallback);
+
+  if (!(await _bypassCaptchas(page, cursor, _2captchaAPIKey)))
+  {
+      return false;
+  }
 
   if (lastVoteSuccess === true)
   {
@@ -537,7 +585,7 @@ async function clickElementWithGhostCursorBySelector(page : puppeteer.Page, curs
 };
 
 
-async function initializeBrower(wsEndpoint : string) : Promise<Browser>
+async function initializeBrower(wsEndpoint : string, _2captchaAPIKey : string) : Promise<Browser>
 {
   
     puppeteer_e.use(
@@ -546,6 +594,15 @@ async function initializeBrower(wsEndpoint : string) : Promise<Browser>
           blockTrackers: true
         })
       );
+    
+    puppeteer_e.use(
+        RecaptchaPlugin({
+            provider: {
+              id: '2captcha',
+              token: '_2captchaAPIKey'
+            }
+          })    
+    );
     
     //const stealthPlugin = require('puppeteer-extra-plugin-stealth')();
 
