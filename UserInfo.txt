@@ -6,5 +6,6 @@
         [
             "Karuta",
             "Ostra"
-        ]
+        ],
+    "twocaptchaAPIKey":"NONE"
 }
