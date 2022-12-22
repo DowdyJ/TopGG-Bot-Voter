@@ -461,12 +461,25 @@ async function _handleVotingPostLogin(page : puppeteer.Page, cursor : GhostCurso
   for (let i = 0; i <= 25 && lastVoteSuccess === null; i++)
     await sleep(1000, false);
 
-  page.off('response', responseCallback);
-
-  if (!(await _bypassCaptchas(page, cursor, _2captchaAPIKey)))
+  let captchaResult = await _bypassCaptchas(page, cursor, _2captchaAPIKey);
+  if (captchaResult === false)
   {
       return false;
+  } 
+  else if (captchaResult === true) 
+  {
+    lastVoteSuccess = null;
+
+      log(`Successfully bypassed CAPTCHA.`);
+      await sleep(2000, false);
+
+      await clickVoteButtonOnTopGG(page, cursor);
+      log("Clicked the vote button again.");
+      for (let i = 0; i <= 25 && lastVoteSuccess === null; i++)
+        await sleep(1000, false);
   }
+
+  page.off('response', responseCallback);
 
   if (lastVoteSuccess === true)
   {
