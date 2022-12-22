@@ -22,13 +22,15 @@ You will also need to have a recent version of PowerShell, though as long as you
 ## Instructions
 After installing Node and cloning the repo, do the following.
 <ol><h3>Linux</h3>
-<li>Run <code>sudo make init</code>. NOTE: This script requires EITHER sudo permissions to install Xvfb and jq OR for those to be installed ahead of time. if you have both installed already, feel free to leave off the sudo c:</li>
+<li>Run <code>sudo make init</code>. NOTE: This script requires EITHER sudo permissions to install Xvfb and jq OR for those to be installed ahead of time. if you have both installed already, feel free to leave off the sudo c:<br>
+Note: depending on permissions the script may also have issues compiling the TypeScript without <code>sudo</code></li>
 <li>Edit <code>UserInfo.txt</code> and <code>bots.txt</code>
   <ul>
     <li>These are parsed as JSON files. Take care to format accordingly!</li>
     <li>Put your Discord username and password in the appropriate fields in UserInfo.txt.</li>
     <li>The <code>real_screen</code> field in UserInfo.txt determines whether you want the program to execute with or without Chromium visible. You probably want to leave this as FALSE unless you are troubleshooting.</li>
     <li>The <code>bots_to_vote_for</code> field is a list of bot names as listed in the <code>bots.txt</code> file. If you'd like to vote for other bots than the ones included in that file, make sure to edit it and add bot ids. You can get the bot id either from within Discord or by going to their voting link and extracting the number from the URL.</li>
+    <li>The <code>twocaptchaAPIKey</code> field in UserInfo.txt does what you'd probably imagine. If you have a 2Captcha account with funds you can paste your API key here for the script to use. Write anything other than a 32 character string for this field and the script will not use 2Captcha. If you don't include your API key here, in the event you <i>do</i> get a CAPTCHA challenge, the script will most likely fail to vote for the bot(s).</li>
   </ul>
 </li>
 <li>Run <code>./run.sh</code>. After initial setup, this is the only step you need to do.</li>
@@ -42,6 +44,8 @@ After installing Node and cloning the repo, do the following.
     <li>Put your Discord username and password in the appropriate fields in UserInfo.txt.</li>
     <li>The <code>real_screen</code> field in UserInfo.txt determines whether you want the program to execute with or without Chromium visible. You probably want to leave this as FALSE unless you are troubleshooting.</li>
     <li>The <code>bots_to_vote_for</code> field is a list of bot names as listed in the <code>bots.txt</code> file. If you'd like to vote for other bots than the ones included in that file, make sure to edit it and add bot ids. You can get the bot id either from within Discord or by going to their voting link and extracting the number from the URL.</li>
+    <li>The <code>twocaptchaAPIKey</code> field in UserInfo.txt does what you'd probably imagine. If you have a 2Captcha account with funds you can paste your API key here for the script to use. Write anything other than a 32 character string for this field and the script will not use 2Captcha. If you don't include your API key here, in the event you <i>do</i> get a CAPTCHA challenge, the script will most likely fail to vote for the bot(s).</li>
+
   </ul>
 </li>
 <li>Right click <code>run.ps1</code> and <code>Run with PowerShell</code>. After initial setup, this is the only step you need to do.</li>
