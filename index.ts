@@ -561,7 +561,7 @@ async function _checkAlreadyVoted(page : puppeteer.Page) : Promise<boolean>
  */
 async function _checkDiscordNewLocationError(page : puppeteer.Page, cursor : GhostCursor) : Promise<boolean>
 {
-    let errorElement = await page.$x("//span[text()*='New login location detected']");
+    let errorElement = await page.$x("//span[text()[contains(.,'New login location detected')]]");
     if (errorElement.length === 0)
         return false;
 
