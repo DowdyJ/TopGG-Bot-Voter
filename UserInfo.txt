@@ -1,11 +1,25 @@
 {
-    "discord_username":"johndoe@example.com",
-    "discord_password":"password",
-    "real_screen":"FALSE",
-    "bots_to_vote_for": 
-        [
-            "Karuta",
-            "Ostra"
-        ],
-    "twocaptchaAPIKey":"NONE"
+    "users": [
+        {
+            "discord_username":"johndoe@example.com",
+            "discord_password":"password",
+            "real_screen":"FALSE",
+            "bots_to_vote_for": 
+                [
+                    "Karuta",
+                    "Nero"
+                ],
+            "twocaptchaAPIKey":"NONE"
+        },
+        {
+            "discord_username":"janedoe2@example.com",
+            "discord_password":"password2",
+            "real_screen":"FALSE",
+            "bots_to_vote_for": 
+                [
+                    "Karuta"
+                ],
+            "twocaptchaAPIKey":"NONE"
+        }    
+    ]
 }
