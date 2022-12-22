@@ -430,11 +430,7 @@ async function _handleVotingPostLogin(page: puppeteer.Page, cursor: GhostCursor,
         return false;
     } else if (captchaResult === true) {
         lastVoteSuccess = null;
-
-        await sleep(2000, false);
-
-        await clickVoteButtonOnTopGG(page, cursor);
-        log("Clicked the vote button again.");
+        
         for (let i = 0; i <= 25 && lastVoteSuccess === null; i++)
             await sleep(1000, false);
     } else {
