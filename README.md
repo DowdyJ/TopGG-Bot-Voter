@@ -1,4 +1,4 @@
-# TopGGBotVoter
+# TopGG Bot Voter
 This will allow you to automate the voting process for Discord bots on Top.gg.<br>
 You can specify any number of bots to vote for, though too many entries may result in CloudFlare temporarily blocking your connections.<br><br>
 From my experience other scripts using Puppeteer can sometimes fail to submit votes due to what I assume is their bot detection system. To avoid this, this project uses GhostCursor to emulate realistic mouse movement and a more elaborate Puppeteer setup that hooks into a chromium instance post-launch. Furthermore, to allow this script to run on headless servers and to avoid getting detected as running headless Chromium <i>but</i> still get the same convenience as running headless, this project optionally utilizes Xvfb to emulate a virtual screen for Chromium to run in.<br>
