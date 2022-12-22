@@ -239,9 +239,24 @@ function log(message : string, messageType : MessageType = MessageType.INFO) : v
             await _loginOntoDiscord(page, cursor, email, password);
             await sleep(5000);
 
-            if (!(await _bypassCaptchas(page, cursor, _2captchaAPIKey)))
+            let captchaResult = await _bypassCaptchas(page, cursor, _2captchaAPIKey);
+            if (captchaResult === false)
             {
                 return VoteStatus.CAPTCHA_FAIL;
+            } 
+            else if (captchaResult === true) 
+            {
+                await sleep(2000, false);
+
+                if (await _checkDiscordNewLocationError(page, cursor))
+                {
+                    log("Discord flagged new location login. Check your email, authorize and try again.", MessageType.ERROR);
+                    return VoteStatus.OTHER_CRIT_FAIL;
+                }
+                if (await _clickLogInButtonOnDiscordLogInPage(page, cursor)) 
+                {
+                    log("Clicked the log in button again.")
+                }
             }
 
             await _clickAuthButton(page, cursor);
@@ -330,7 +345,7 @@ async function getInnerTextFromElement(element : puppeteer.ElementHandle<Element
 }
 
 
-async function _bypassCaptchas(page : puppeteer.Page, cursor : GhostCursor, _2captchaAPIKey : string) : Promise<boolean> 
+async function _bypassCaptchas(page : puppeteer.Page, cursor : GhostCursor, _2captchaAPIKey : string) : Promise<boolean | null> 
 {
     if (_2captchaAPIKey !== '')
     {
@@ -342,7 +357,13 @@ async function _bypassCaptchas(page : puppeteer.Page, cursor : GhostCursor, _2ca
             return false;
         }
 
-        return true;
+        if (result.captchas.length !== 0)
+        {
+            log(`Successfully bypassed ${result.captchas.length} CAPTCHA(s).`, MessageType.SUCCESS);
+            return true;
+        }
+
+        return null;
     } 
     else 
     {
@@ -362,13 +383,15 @@ async function _bypassCaptchas(page : puppeteer.Page, cursor : GhostCursor, _2ca
                 } else 
                 {
                     log("Successfully bypassed captcha challenge!");
+                    return true;
                 }
             } else 
             {
                 log("Successfully bypassed captcha challenge!");
+                return true;
             }
         }
-        return true;
+        return null;
     }
 }
 
@@ -530,6 +553,21 @@ async function _checkAlreadyVoted(page : puppeteer.Page) : Promise<boolean>
         return false;
 }
 
+/**
+ * 
+ * @param page 
+ * @param cursor 
+ * @returns true if error is encountered, false otherwise.
+ */
+async function _checkDiscordNewLocationError(page : puppeteer.Page, cursor : GhostCursor) : Promise<boolean>
+{
+    let errorElement = await page.$x("//span[text()*='New login location detected']");
+    if (errorElement.length === 0)
+        return false;
+
+    return true;
+    
+}
 
 async function clickElementWithGhostCursor(cursor : ghostcursor.GhostCursor, element : puppeteer.ElementHandle<Node> | puppeteer.ElementHandle<Element> | null, clickOptions : ghostcursor.ClickOptions | undefined = undefined) : Promise<void>
 {
@@ -599,7 +637,7 @@ async function initializeBrower(wsEndpoint : string, _2captchaAPIKey : string) :
         RecaptchaPlugin({
             provider: {
               id: '2captcha',
-              token: '_2captchaAPIKey'
+              token: _2captchaAPIKey
             }
           })    
     );
@@ -656,6 +694,16 @@ async function _onAuthPage(page : puppeteer.Page) : Promise<boolean>
         return false;
     }
     log("Assuming on authorization page...");
+    return true;
+}
+
+async function _clickLogInButtonOnDiscordLogInPage(page : puppeteer.Page, cursor : GhostCursor) : Promise<boolean>
+{
+    let logInButtonMatches = await page.$x('//div[text()=="Log In"]');
+    if (logInButtonMatches.length === 0)
+        return false;
+
+    await cursor.click(logInButtonMatches[0] as puppeteer.ElementHandle<Element>);
     return true;
 }
 
