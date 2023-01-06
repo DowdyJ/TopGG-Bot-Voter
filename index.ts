@@ -7,7 +7,8 @@ import ghostcursor from "ghost-cursor"
 import puppeteer_e from "puppeteer-extra"
 import puppeteer, {
     BoundingBox,
-    Browser
+    Browser,
+    ElementHandle
 } from "puppeteer"
 import {
     DEFAULT_INTERCEPT_RESOLUTION_PRIORITY
@@ -140,7 +141,9 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
         }
     } catch (err) {
         log(err as string, MessageType.ERROR);
-        (await browser!.pages()).forEach(p => p.screenshot({path:`error_${new Date()}_${Math.random()}.jpg`, fullPage:true, type:"jpeg"}))
+        let screenshots : Promise< string | Buffer >[] = [];
+        (await browser!.pages()).forEach(p => screenshots.push(p.screenshot({path:`error_${new Date()}_${Math.random()}.jpg`, fullPage:true, type:"jpeg"})));
+        await Promise.all(screenshots!);
     } finally {
         try {
             await browser!.close();
@@ -218,12 +221,10 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
 
         await page.waitForNetworkIdle();
 
-        if (await _onAuthPage(page)) {
-            await _hitNotYouPromptIfUserNamesDontMatch(page, cursor, displayName);
-        } 
-        else {
+        if (!(await _onAuthPage(page)) || !(await _hitNotYouPromptIfUserNamesDontMatch(page, cursor, displayName))) {
             await _loginOntoDiscord(page, cursor, email, password);
-            await page.waitForNetworkIdle();
+
+            await Promise.any([page.waitForNetworkIdle(), sleep(10 * 1000, false)]);
     
             let captchaResult = await _bypassCaptchas(page, cursor, _2captchaAPIKey);
             if (captchaResult === false) {
@@ -245,7 +246,7 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
     }
 
     await Promise.any([page.waitForNetworkIdle(), sleep(10 * 1000, false)]);
-    
+
     let voteSuccess: boolean | null = await _handleVotingPostLogin(page, cursor, botID, _2captchaAPIKey);
 
     if (voteSuccess == null) {
@@ -294,7 +295,7 @@ async function sleep(ms: number, log: boolean = true) {
 async function slowType(page: puppeteer.Page, whatToType: string) {
     for (let index = 0; index < whatToType.length; index++) {
         const element = whatToType[index];
-        const delayAmount: number = (Math.random() * 600) + 200;
+        const delayAmount: number = (Math.random() * 100) + 200;
         await page.keyboard.type(element, {
             delay: delayAmount
         });
@@ -451,20 +452,20 @@ async function _handleVotingPostLogin(page: puppeteer.Page, cursor: GhostCursor,
 
 async function _getCurrentlyLoggedInUserOnTopGG(page : puppeteer.Page) : Promise< string >
 {
-    let results = await page.$x("//button[id='popover-trigger-10']");
+    let results = await page.$("button[id='popover-trigger-10']");
 
-    if (results.length === 0)
+    if (results === null)
         return "";
-    else if (results.length > 1)
-        log("More than one result for elements when trying to find user name", MessageType.WARNING);
 
-    let username : string | null = null;
-    await results[0].evaluate(e => { username = (e as Element).getAttribute("data-testid")})
-
+    let username : string | null = await results.evaluate(el => el.getAttribute("data-testid"));
+    
     if (username === null)
+    {
+        log("Failed to extract username from page.", MessageType.WARNING);
         username = "";
+    }
 
-    return username
+    return username;
 }
 
 async function _getCloudFlareErrInfo(page: puppeteer.Page): Promise < string > {
@@ -540,7 +541,6 @@ async function _checkDiscordNewLocationError(page: puppeteer.Page, cursor: Ghost
         return false;
 
     return true;
-
 }
 
 async function clickElementWithGhostCursor(cursor: ghostcursor.GhostCursor, element: puppeteer.ElementHandle < Node > | puppeteer.ElementHandle < Element > | null, clickOptions: ghostcursor.ClickOptions | undefined = undefined): Promise < void > {
@@ -654,7 +654,7 @@ async function _onAuthPage(page: puppeteer.Page): Promise < boolean > {
 }
 
 async function _clickLogInButtonOnDiscordLogInPage(page: puppeteer.Page, cursor: GhostCursor): Promise < boolean > {
-    let logInButtonMatches = await page.$x('//div[text()=="Log In"]');
+    let logInButtonMatches = await page.$x('//div[text()="Log In"]');
     if (logInButtonMatches.length === 0)
         return false;
 
@@ -682,26 +682,38 @@ async function _loginOntoDiscord(page: puppeteer.Page, cursor: GhostCursor, user
     await slowType(page, password);
 
     await page.keyboard.type(String.fromCharCode(13)); //enter
+
+    log(`Done.`);
 };
 
-async function _hitNotYouPromptIfUserNamesDontMatch(page : puppeteer.Page, cursor : GhostCursor, displayname : string) : Promise < void > {
-    let usernameOnPage = await page.$x(`//div[text()=${displayname}]`);
+/**
+ * This function assumes you are on the Discord authorization page. It will navigate back to login screen if displayname does not match what is on Auth page.
+ * @param page 
+ * @param cursor 
+ * @param displayname 
+ * @returns true if remaining on auth page. False if navigating back to login.
+ */
+async function _hitNotYouPromptIfUserNamesDontMatch(page : puppeteer.Page, cursor : GhostCursor, displayname : string) : Promise < boolean > {
+    let usernameOnPage = await page.$x(`//div[text()=\"${displayname}\"]`);
     
     if (usernameOnPage.length > 0)
     {
         log("Discord assumed correct user. Remaining on page.");
+        return true;
     }
+
+    log("Discord assumed incorrect user.");
     
     let notYouPrompt = await page.$x("//a[text()='Not you?']");
 
     if (notYouPrompt.length === 0)
     {
         log("Failed to go back from Auth page.", MessageType.ERROR);
-        return;
+        return true;
     }
     
     await cursor.click(notYouPrompt[0] as puppeteer.ElementHandle<Element>);
-    return;
+    return false;
 }
 
 async function _clickAuthButton(page: puppeteer.Page, cursor: GhostCursor): Promise < void > {
