@@ -1,6 +1,7 @@
 {
     "users": [
         {
+            "discord_displayname":"johnd",
             "discord_username":"johndoe@example.com",
             "discord_password":"password",
             "real_screen":"FALSE",
@@ -12,6 +13,7 @@
             "twocaptchaAPIKey":"NONE"
         },
         {
+            "discord_displayname":"DoeJ",
             "discord_username":"janedoe2@example.com",
             "discord_password":"password2",
             "real_screen":"FALSE",
