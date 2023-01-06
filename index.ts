@@ -114,8 +114,6 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
 
         var browser: Browser = await initializeBrower(wsEndPoint, _2captchaAPIKey);
 
-        //const wipeLocalStorage: string = process.argv[6];
-
         const botID: string = process.argv[5];
         const email: string = process.argv[2];
         const password: string = process.argv[3];
@@ -142,6 +140,7 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
         }
     } catch (err) {
         log(err as string, MessageType.ERROR);
+        (await browser!.pages()).forEach(p => p.screenshot({path:`error_${new Date()}_${Math.random()}.jpg`, fullPage:true, type:"jpeg"}))
     } finally {
         try {
             await browser!.close();
@@ -185,14 +184,14 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
     log(`Bot ID: ${botID}`);
 
     const page: puppeteer.Page = await browser.newPage();
-    page.setDefaultTimeout(300000);
+    page.setDefaultTimeout(150000);
 
     const cursor: ghostcursor.GhostCursor = createCursor(page);
 
     await installMouseHelper(page);
 
     await page.goto(url);
-
+    await Promise.any([page.waitForNetworkIdle(), sleep(10 * 1000, false)]);
 
     if (await _gotCloudFlared(page)) {
         log("Encountered CloudFlare error. This may be caused by too many connections. Details are below.", MessageType.ERROR);
@@ -200,6 +199,7 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
         await sleep(5000);
         return VoteStatus.CLOUDFLARE_FAIL;
     }
+    
     let needsLoggedIn : boolean = await _needsLoggedIn(page);
     let loggedInUser : string = await _getCurrentlyLoggedInUserOnTopGG(page);
 
@@ -219,32 +219,33 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
         await page.waitForNetworkIdle();
 
         if (await _onAuthPage(page)) {
-            await _hitNotYouPrompt(page, cursor);
-            //await _clickAuthButton(page, cursor);
+            await _hitNotYouPromptIfUserNamesDontMatch(page, cursor, displayName);
         } 
-
-        await _loginOntoDiscord(page, cursor, email, password);
-        await page.waitForNetworkIdle();
-
-        let captchaResult = await _bypassCaptchas(page, cursor, _2captchaAPIKey);
-        if (captchaResult === false) {
-            return VoteStatus.CAPTCHA_FAIL;
-        } else if (captchaResult === true) {
-            await sleep(2000, false);
-
-            if (await _checkDiscordNewLocationError(page, cursor)) {
-                log("Discord flagged new location login. Check your email, authorize and try again.", MessageType.ERROR);
-                return VoteStatus.OTHER_CRIT_FAIL;
-            }
-            if (await _clickLogInButtonOnDiscordLogInPage(page, cursor)) {
-                log("Clicked the log in button again.")
+        else {
+            await _loginOntoDiscord(page, cursor, email, password);
+            await page.waitForNetworkIdle();
+    
+            let captchaResult = await _bypassCaptchas(page, cursor, _2captchaAPIKey);
+            if (captchaResult === false) {
+                return VoteStatus.CAPTCHA_FAIL;
+            } else if (captchaResult === true) {
+                await sleep(2000, false);
+    
+                if (await _checkDiscordNewLocationError(page, cursor)) {
+                    log("Discord flagged new location login. Check your email, authorize and try again.", MessageType.ERROR);
+                    return VoteStatus.OTHER_CRIT_FAIL;
+                }
+                if (await _clickLogInButtonOnDiscordLogInPage(page, cursor)) {
+                    log("Clicked the log in button again.")
+                }
             }
         }
 
         await _clickAuthButton(page, cursor);
     }
 
-    await sleep(10 * 1000);
+    await Promise.any([page.waitForNetworkIdle(), sleep(10 * 1000, false)]);
+    
     let voteSuccess: boolean | null = await _handleVotingPostLogin(page, cursor, botID, _2captchaAPIKey);
 
     if (voteSuccess == null) {
@@ -683,8 +684,15 @@ async function _loginOntoDiscord(page: puppeteer.Page, cursor: GhostCursor, user
     await page.keyboard.type(String.fromCharCode(13)); //enter
 };
 
-async function _hitNotYouPrompt(page : puppeteer.Page, cursor : GhostCursor) : Promise < void > {
-    let notYouPrompt = await page.$x("//a[text()='Not you?']")
+async function _hitNotYouPromptIfUserNamesDontMatch(page : puppeteer.Page, cursor : GhostCursor, displayname : string) : Promise < void > {
+    let usernameOnPage = await page.$x(`//div[text()=${displayname}]`);
+    
+    if (usernameOnPage.length > 0)
+    {
+        log("Discord assumed correct user. Remaining on page.");
+    }
+    
+    let notYouPrompt = await page.$x("//a[text()='Not you?']");
 
     if (notYouPrompt.length === 0)
     {
@@ -699,13 +707,11 @@ async function _hitNotYouPrompt(page : puppeteer.Page, cursor : GhostCursor) : P
 async function _clickAuthButton(page: puppeteer.Page, cursor: GhostCursor): Promise < void > {
     log("Trying to find auth button...");
     let authorizeButton: puppeteer.ElementHandle < Node > | null = null;
-    try {
-        authorizeButton = await page.waitForXPath("//div[text()='Authorize']", {
-            timeout: 60000
-        });
-    } catch (err) {
-        log(err as string, MessageType.ERROR);
-    }
+
+    authorizeButton = await page.waitForXPath("//div[text()='Authorize']", {
+        timeout: 60000
+    });
+    
 
     if (authorizeButton == null) {
         log("Failed to get authorize button on discord. Aborting.", MessageType.ERROR);
