@@ -1,13 +1,13 @@
-CHROMIUM=$(node getChromiumExecutablePath.js)
+LaunchChromium() 
+{
+    CHROMIUM=$(node getChromiumExecutablePath.js)
 
-for bot in $(cat UserInfo.txt | jq -r .bots_to_vote_for[])
-do
-    if [ $(cat UserInfo.txt | jq -r .real_screen) = "FALSE" ]
+    if [ $(echo $USERJSON | jq -r .real_screen) = "FALSE" ]
     then
         echo Launching Chromium: $CHROMIUM with virtual frame buffer...
         xvfb-run -a -s "-ac" exec $CHROMIUM --remote-debugging-port=9222 --disable-gpu --no-sandbox &>/dev/null &
         echo Running Xvfb on server number `printenv DISPLAY`
-    elif [ $(cat UserInfo.txt | jq -r .real_screen) = "TRUE" ]
+    elif [ $(echo $USERJSON | jq -r .real_screen) = "TRUE" ]
     then
         echo Launching Chromium: $CHROMIUM with real display...  
         exec $CHROMIUM --remote-debugging-port=9222 --disable-gpu --no-sandbox &>/dev/null &
@@ -17,23 +17,53 @@ do
     fi
 
     sleep 5
+}
 
-    BOTNAME=$bot
-    USERNAME=$(cat UserInfo.txt | jq -r .discord_username)
-    PASSWORD=$(cat UserInfo.txt | jq -r .discord_password)
-    LOGOUT="FALSE"
-    CAPTCHA_API_KEY=$(cat UserInfo.txt | jq -r .twocaptchaAPIKey)
+NUMBEROFUSERS=0
 
-    if [ $# -ne 0 ]
+for user in $(cat UserInfo.txt | jq -rc .users[])
+do
+    NUMBEROFUSERS=$((NUMBEROFUSERS+1))
+done
+
+LOGOUT="FALSE"
+
+if [ $NUMBEROFUSERS -ne 1 ]
+then
+    LOGOUT="TRUE"
+fi
+
+
+for user in $(cat UserInfo.txt | jq -rc .users[])
+do
+    USERJSON=$user
+    if [ $LOGOUT = "TRUE" ]
     then
-        LOGOUT=$1
+        LaunchChromium
+        node wipeSessionStorage.js $(curl -s http://127.0.0.1:9222/json/version | jq -r .webSocketDebuggerUrl)
     fi
 
-    node index.js \
-    $USERNAME \
-    $PASSWORD \
-    $(curl -s http://127.0.0.1:9222/json/version | jq -r .webSocketDebuggerUrl) \
-    $(cat bots.txt | jq -r .${BOTNAME,,}) \
-    $LOGOUT \
-    $CAPTCHA_API_KEY
+    for bot in $(echo $USERJSON | jq -r .bots_to_vote_for[])
+    do
+        BOTNAME=$bot
+        USERNAME=$(echo $USERJSON | jq -r .discord_username)
+        DISPLAYNAME=$(echo $USERJSON | jq -r .discord_displayname)
+        PASSWORD=$(echo $USERJSON | jq -r .discord_password)
+        CAPTCHA_API_KEY=$(echo $USERJSON | jq -r .twocaptchaAPIKey)
+        
+        LaunchChromium
+
+        node index.js \
+        $USERNAME \
+        $PASSWORD \
+        $(curl -s http://127.0.0.1:9222/json/version | jq -r .webSocketDebuggerUrl) \
+        $(cat bots.txt | jq -r .${BOTNAME,,}) \
+        $CAPTCHA_API_KEY \
+        $DISPLAYNAME
+
+        echo ----------------------------------
+    done
+    echo ==================================
 done
+
+

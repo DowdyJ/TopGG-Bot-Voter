@@ -45,7 +45,7 @@ $BOTSTOVOTEFOR | ForEach-Object {
     $WEBSOCKETJSON = Invoke-WebRequest -Uri http://127.0.0.1:9222/json/version | ConvertFrom-Json
     $WEBSOCKET = $WEBSOCKETJSON.webSocketDebuggerUrl
     $BOTID = $BOTNAME_TOID_CONVERSION.$_ 
-    node index.js $USERNAME $PASSWORD $WEBSOCKET $BOTID $LOGOUT $TWO_CAPTCHA_KEY
+    node index.js $USERNAME $PASSWORD $WEBSOCKET $BOTID $TWO_CAPTCHA_KEY
 }
 
 pause

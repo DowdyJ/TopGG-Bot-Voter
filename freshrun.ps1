@@ -1,1 +1,1 @@
-& "$PSScriptRoot\run.ps1" TRUE
+& node wipeSessionStorage.js
