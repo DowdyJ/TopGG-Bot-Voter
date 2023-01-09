@@ -162,37 +162,16 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
  * @returns void
  */
 async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: string, botID: string, _2captchaAPIKey: string, displayName : string): Promise < VoteStatus > {
-    const url: string = `https://top.gg/bot/${botID}/vote`;
 
-    log("Recieved the following input:");
-
-    let censoredEmail = email[0] + email[1];
-    for (let i = 2; i < email.length; i++) {
-        const element = email[i];
-        if (element === "@") {
-            censoredEmail += email.slice(i);
-            break;
-        }
-        censoredEmail += "*";
-    }
-
-    let censoredPassword = password[0] + password[1];
-    for (let i = 2; i < password.length; i++) {
-        censoredPassword += "*";
-    }
-
-    log(`Display Name: ${displayName}`)
-    log(`Username: ${censoredEmail}`);
-    log(`Password: ${censoredPassword}`);
-    log(`Bot ID: ${botID}`);
+    _printCensoredLoginInfo(email, password, botID, displayName);
 
     const page: puppeteer.Page = await browser.newPage();
     page.setDefaultTimeout(150000);
 
     const cursor: ghostcursor.GhostCursor = createCursor(page);
-
     await installMouseHelper(page);
 
+    const url: string = `https://top.gg/bot/${botID}/vote`;
     await page.goto(url);
     await Promise.any([page.waitForNetworkIdle(), sleep(10 * 1000, false)]);
 
@@ -419,7 +398,7 @@ async function _handleVotingPostLogin(page: puppeteer.Page, cursor: GhostCursor,
 
     page.on('response', responseCallback);
 
-    await clickVoteButtonOnTopGG(page, cursor);
+    await _clickVoteButtonOnTopGG(page, cursor);
 
     for (let i = 0; i <= 25 && lastVoteSuccess === null; i++)
         await sleep(1000, false);
@@ -612,6 +591,32 @@ async function initializeBrower(wsEndpoint: string, _2captchaAPIKey: string): Pr
     });
 };
 
+function _printCensoredLoginInfo(email : string, password : string, botID : string, displayName : string) : void {
+    log("Recieved the following input:");
+
+    let censoredEmail = email[0] + email[1];
+    for (let i = 2; i < email.length; i++) {
+        const element = email[i];
+        if (element === "@") {
+            censoredEmail += email.slice(i);
+            break;
+        }
+        censoredEmail += "*";
+    }
+
+    let censoredPassword = password[0] + password[1];
+    for (let i = 2; i < password.length; i++) {
+        censoredPassword += "*";
+    }
+
+    log(`Display Name: ${displayName}`)
+    log(`Username: ${censoredEmail}`);
+    log(`Password: ${censoredPassword}`);
+    log(`Bot ID: ${botID}`);
+
+    return;
+};
+
 async function _needsLoggedIn(page: puppeteer.Page): Promise < boolean > {
     await sleep(5000); //on page load
 
@@ -738,7 +743,7 @@ async function _clickAuthButton(page: puppeteer.Page, cursor: GhostCursor): Prom
     log("Auth button clicked.");
 };
 
-async function clickVoteButtonOnTopGG(page: puppeteer.Page, cursor: GhostCursor): Promise < void > {
+async function _clickVoteButtonOnTopGG(page: puppeteer.Page, cursor: GhostCursor): Promise < void > {
     log("Waiting for Top.gg...", MessageType.NONE);
     await Promise.any([page.waitForNetworkIdle(), sleep(20 * 1000, false)]);
     log("\nFinished waiting for page.", MessageType.NONE);
