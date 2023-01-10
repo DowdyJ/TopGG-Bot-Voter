@@ -142,7 +142,7 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
     } catch (err) {
         log(err as string, MessageType.ERROR);
         let screenshots : Promise< string | Buffer >[] = [];
-        (await browser!.pages()).forEach(p => screenshots.push(p.screenshot({path:`error_${new Date()}_${Math.random()}.jpg`, fullPage:true, type:"jpeg"})));
+        (await browser!.pages()).forEach(p => screenshots.push(p.screenshot({path:`error_${new Date()}_${Math.random()}.jpg`, fullPage:true, type:"jpeg", fromSurface:false})));
         await Promise.all(screenshots!);
     } finally {
         try {
@@ -166,7 +166,13 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
     _printCensoredLoginInfo(email, password, botID, displayName);
 
     const page: puppeteer.Page = await browser.newPage();
-    page.setDefaultTimeout(150000);
+    page.setDefaultTimeout(20 * 1000);
+
+    // This ensures that certain elements of the page are loaded without the need to scroll
+    await page.setViewport({
+        width: 1920,
+        height: 1080
+    });
 
     const cursor: ghostcursor.GhostCursor = createCursor(page);
     await installMouseHelper(page);
@@ -587,7 +593,7 @@ async function initializeBrower(wsEndpoint: string, _2captchaAPIKey: string): Pr
     //puppeteer_e.use(stealthPlugin);
 
     return await puppeteer_e.connect({
-        browserWSEndpoint: wsEndpoint
+        browserWSEndpoint: wsEndpoint,
     });
 };
 
