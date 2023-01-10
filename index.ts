@@ -54,8 +54,39 @@ enum MessageType {
     NONE
 }
 
-function logToFile(message: string): void {
-    fs.writeFileSync("log.txt", `${message}\n`, {
+function logVotingResultToFile(username: string, botID : string, successValue : VoteStatus): void {
+
+    let failedToVoteBase : string = `${new Date()}: Failed to vote for ${botID} with user ${username}. Reason: `;
+    let succeededInVotingBase : string = `${new Date()}: Successfully voted for ${botID} with user ${username}`
+    let resultString : string = "";
+    switch (successValue) {
+        case VoteStatus.ALREADY_VOTED_FAIL:
+            resultString = failedToVoteBase + "Already voted";
+            break;
+        case VoteStatus.CAPTCHA_FAIL:
+            resultString = failedToVoteBase + "Failed Captcha Challenge";
+            break;
+        case VoteStatus.CLOUDFLARE_FAIL:
+            resultString = failedToVoteBase + "Blocked by CloudFlare";
+            break;
+        case VoteStatus.LOGIN_FAIL:
+            resultString = failedToVoteBase + "Failed to log in to Discord";
+            break;
+        case VoteStatus.OTHER_CRIT_FAIL:
+            resultString = failedToVoteBase + "Other major failure";
+            break;
+        case VoteStatus.OTHER_RETRY_FAIL:
+            resultString = failedToVoteBase + "Other recoverable failure";
+            break;
+        case VoteStatus.SUCCESS:
+            resultString = succeededInVotingBase;
+            break;
+        default:
+            resultString = "UNHANDLED CASE";
+            break;
+    }
+
+    fs.writeFileSync("log.txt", `${resultString}\n`, {
         flag: "as"
     });
 }
@@ -122,29 +153,38 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
 
         let votingResult: VoteStatus = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName);
 
+        logVotingResultToFile(displayName, botID, votingResult);
+
         if (votingResult === VoteStatus.CLOUDFLARE_FAIL) {
             log("Waiting 5 minutes before trying again...");
             sleep(5 * 60 * 1000);
             votingResult = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName);
 
             if (votingResult === VoteStatus.SUCCESS) {
+                logVotingResultToFile(displayName, botID, votingResult);
                 return;
             } else if (votingResult === VoteStatus.CLOUDFLARE_FAIL) {
                 log("CloudFlare rejected the connection again. Try waiting a while before trying again.", MessageType.ERROR);
+                logVotingResultToFile(displayName, botID, votingResult);
                 return;
             }
         }
         // One more chance for non-critical fails
         if (votingResult === VoteStatus.LOGIN_FAIL || votingResult === VoteStatus.OTHER_RETRY_FAIL) {
             await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName);
+            logVotingResultToFile(displayName, botID, votingResult);
             return;
         }
-    } catch (err) {
+
+        return;
+    } 
+    catch (err) {
         log(err as string, MessageType.ERROR);
         let screenshots : Promise< string | Buffer >[] = [];
         (await browser!.pages()).forEach(p => screenshots.push(p.screenshot({path:`error_${new Date()}_${Math.random()}.jpg`, fullPage:true, type:"jpeg", fromSurface:false})));
         await Promise.all(screenshots!);
-    } finally {
+    } 
+    finally {
         try {
             await browser!.close();
         } catch (err) {
@@ -244,7 +284,6 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
     await page.close();
     if (voteSuccess == null) {
         log("Did not recieve failure nor success repsonse from server again. Aborting.", MessageType.ERROR);
-        logToFile(`Noncritical failure to vote for ${botID} at ${new Date()}.`);
         return VoteStatus.OTHER_RETRY_FAIL;
     } else if (voteSuccess === false) {
         return VoteStatus.OTHER_CRIT_FAIL;
@@ -426,12 +465,8 @@ async function _handleVotingPostLogin(page: puppeteer.Page, cursor: GhostCursor,
 
     page.off('response', responseCallback);
 
-    if (lastVoteSuccess === true) {
-        logToFile(`Successfully voted for ${botName} : ID ${botID} at ${new Date()}`);
-    } else if (lastVoteSuccess === false) {
-        logToFile(`Failed to vote for ${botName} : ID ${botID} at ${new Date()}`);
-    }
     return lastVoteSuccess;
+    
 }
 
 
