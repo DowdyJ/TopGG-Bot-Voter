@@ -27,7 +27,7 @@ Note: depending on permissions the script may also have issues compiling the Typ
 <li>Edit <code>UserInfo.txt</code> and <code>bots.txt</code>
   <ul>
     <li>These are parsed as JSON files. Take care to format accordingly!</li>
-    <li>Put your Discord username and password in the appropriate fields in UserInfo.txt.</li>
+    <li>Put your Discord email, display name and password in the appropriate fields in UserInfo.txt.</li>
     <li>The <code>real_screen</code> field in UserInfo.txt determines whether you want the program to execute with or without Chromium visible. You probably want to leave this as FALSE unless you are troubleshooting.</li>
     <li>The <code>bots_to_vote_for</code> field is a list of bot names as listed in the <code>bots.txt</code> file. If you'd like to vote for other bots than the ones included in that file, make sure to edit it and add bot ids. You can get the bot id either from within Discord or by going to their voting link and extracting the number from the URL.</li>
     <li>The <code>twocaptchaAPIKey</code> field in UserInfo.txt does what you'd probably imagine. If you have a 2Captcha account with funds you can paste your API key here for the script to use. Write anything other than a 32 character string for this field and the script will not use 2Captcha. If you don't include your API key here, in the event you <i>do</i> get a CAPTCHA challenge, the script will most likely fail to vote for the bot(s).</li>
@@ -41,7 +41,7 @@ Note: depending on permissions the script may also have issues compiling the Typ
 <li>Edit <code>UserInfo.txt</code> and <code>bots.txt</code>
   <ul>
     <li>These are parsed as JSON files. Take care to format accordingly!</li>
-    <li>Put your Discord username and password in the appropriate fields in UserInfo.txt.</li>
+    <li>Put your Discord email, display name and password in the appropriate fields in UserInfo.txt.</li>
     <li>The <code>real_screen</code> field in UserInfo.txt determines whether you want the program to execute with or without Chromium visible. You probably want to leave this as FALSE unless you are troubleshooting.</li>
     <li>The <code>bots_to_vote_for</code> field is a list of bot names as listed in the <code>bots.txt</code> file. If you'd like to vote for other bots than the ones included in that file, make sure to edit it and add bot ids. You can get the bot id either from within Discord or by going to their voting link and extracting the number from the URL.</li>
     <li>The <code>twocaptchaAPIKey</code> field in UserInfo.txt does what you'd probably imagine. If you have a 2Captcha account with funds you can paste your API key here for the script to use. Write anything other than a 32 character string for this field and the script will not use 2Captcha. If you don't include your API key here, in the event you <i>do</i> get a CAPTCHA challenge, the script will most likely fail to vote for the bot(s).</li>
@@ -53,7 +53,8 @@ Note: depending on permissions the script may also have issues compiling the Typ
 
 <br>
 That should be all you need to do! Due to how Puppeteer is setup, your cookies are not wiped after each use. If you want to reset this (such as to login as another user) run <code>./freshrun.sh</code> (freshrun.ps1 for Windows).<br>
-If you'd like this to repeat on an interval, you are encouraged to set up a task in cron or other applicable software.
+If you'd like this to repeat on an interval, you are encouraged to set up a task in crontab or other applicable software. An example crontab entry is as follows:
+<code>* */13 * * * /home/YOUR_USER/AND_PATH_HERE/TopGG-Bot-Voter/run.sh >/dev/null 2>&1</code>
 
 ## Notes
 As far as I can tell, automation is in accordance with top.gg's privacy policy and terms of service (2022/12/05). As you must store your Discord username and password in plain text to use this, do be careful. This program doesn't steal your info, but it very well could. I've done my best to write this in a readable way, so feel free to check! If you have suggestions or contirbutions feel free to open a pull request or an issue.<br>
