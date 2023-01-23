@@ -1,3 +1,10 @@
+#!/usr/bin/env bash
+export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+export PUPPETEER_EXECUTABLE_PATH=$(which chromium)
+SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+
+cd $SCRIPT_DIRECTORY
+
 REAL_SCREEN=$(cat UserInfo.txt | jq -rc .users[0].real_screen)
 
 LaunchChromium() 

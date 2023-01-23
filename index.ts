@@ -27,6 +27,8 @@ import {
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha'
 
 
+var g_realtty : boolean;
+
 const BOLD = '\u001b[1m';
 const ITALIC = '\u001b[3m';
 const UNDERLINE = '\u001b[4m';
@@ -132,6 +134,8 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
 
 (async () => {
     try {
+        g_realtty = (process.argv[8] == "true" ? true : false);
+
         const wsEndPoint: string = process.argv[4];
         log(`Connecting to endpoint ${wsEndPoint}`);
 
@@ -143,6 +147,7 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
         } else {
             log("Using 2Captcha.", MessageType.INFO);
         }
+
 
         var browser: Browser = await initializeBrower(wsEndPoint, _2captchaAPIKey);
 
@@ -244,7 +249,7 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
     if (needsLoggedIn) {
         await _clickLoginButtonOnTopGG(page, cursor);
 
-        await page.waitForNetworkIdle();
+        await Promise.all([page.waitForNetworkIdle(), sleep(5 * 1000)]);
 
         if (!(await _onAuthPage(page)) || !(await _hitNotYouPromptIfUserNamesDontMatch(page, cursor, displayName))) {
             await _loginOntoDiscord(page, cursor, email, password);
@@ -300,13 +305,13 @@ async function sleep(ms: number, log: boolean = true) {
     let numberOfIterations: number = ms / countdownResolution;
 
     for (let i = 0; i < numberOfIterations; i++) {
-        if (log)
+        if (log && g_realtty)
             process.stdout.write(`Waiting: ${totalSecondsToWait - totalSecondsWaited} / ${totalSecondsToWait}`);
 
         await new Promise(resolve => setTimeout(resolve, countdownResolution));
         totalSecondsWaited += (countdownResolution / 1000);
 
-        if (log) {
+        if (log && g_realtty) {
             process.stdout.clearLine(0);
             process.stdout.cursorTo(0);
         }

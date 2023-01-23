@@ -1,3 +1,5 @@
+Set-Location (Split-Path $PSCommandPath)
+
 $UserInfoJson = Get-Content -Path .\UserInfo.txt -Raw | ConvertFrom-Json
 $USERNAME = $UserInfoJson.discord_username
 $PASSWORD = $UserInfoJson.discord_password

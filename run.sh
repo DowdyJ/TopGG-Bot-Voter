@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
-
+SECONDS_TO_SLEEP=0
+#$(shuf -i 0-1800 -n1)
+echo "Sleeping for $SECONDS_TO_SLEEP seconds..."  
+sleep $SECONDS_TO_SLEEP
+export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+export PUPPETEER_EXECUTABLE_PATH=$(which chromium)
 SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 cd $SCRIPT_DIRECTORY
+
+REAL_TTY=true
+
+tty -s;
+if [ "0" != "$?" ]; then
+    REAL_TTY=false
+fi    
 
 LaunchChromium() 
 {
@@ -65,7 +77,8 @@ do
         $(curl -s http://127.0.0.1:9222/json/version | jq -r .webSocketDebuggerUrl) \
         $(cat bots.txt | jq -r .${BOTNAME,,}) \
         $CAPTCHA_API_KEY \
-        $DISPLAYNAME
+        $DISPLAYNAME \
+	    $REAL_TTY
 
         echo ----------------------------------
     done
