@@ -54,7 +54,7 @@ Note: depending on permissions the script may also have issues compiling the Typ
 <br>
 That should be all you need to do! Due to how Puppeteer is setup, your cookies are not wiped after each use. If you want to reset this (such as to login as another user) run <code>./freshrun.sh</code> (freshrun.ps1 for Windows).<br>
 If you'd like this to repeat on an interval, you are encouraged to set up a task in crontab or other applicable software. An example crontab entry is as follows:
-<code>* */13 * * * /home/YOUR_USER/AND_PATH_HERE/TopGG-Bot-Voter/run.sh >/dev/null 2>&1</code>
+<code>0 */13 * * * /home/YOUR_USER/AND_PATH_HERE/TopGG-Bot-Voter/run.sh >/dev/null 2>&1</code><br>
 
 ## Notes
 As far as I can tell, automation is in accordance with top.gg's privacy policy and terms of service (2022/12/05). As you must store your Discord username and password in plain text to use this, do be careful. This program doesn't steal your info, but it very well could. I've done my best to write this in a readable way, so feel free to check! If you have suggestions or contirbutions feel free to open a pull request or an issue.<br>
