@@ -1,7 +1,7 @@
 Set-Location (Split-Path $PSCommandPath)
 
 function Open-Chrome($USE_REAL_SCREEN, $CHROMIUM_EXEC_PATH) {
-    if ( $USE_REAL_SCREEN.toLower() -eq "FALSE" )
+    if ( $($USE_REAL_SCREEN.ToLower()) -eq "FALSE" )
     {
         $HAS_VDESK = $true
         Get-Package vdesk
@@ -27,10 +27,10 @@ function Open-Chrome($USE_REAL_SCREEN, $CHROMIUM_EXEC_PATH) {
 }
 
 function Invoke-Vote {
-    $CHROMIUM = node getChromiumExecutablePath.js
+    $CHROMIUM = node source/getChromiumExecutablePath.js
 
     $LOGOUT = "false"
-    if ( $USERS.Length -ne 0 )
+    if ( $USERS.Length -ne 1 )
     {
         $LOGOUT = "true"
     }
@@ -50,19 +50,16 @@ function Invoke-Vote {
         
         if ($LOGOUT -match "true")
         {
-            Open-Chrome($REALSCREEN, $CHROMIUM)
+            Open-Chrome $REALSCREEN $CHROMIUM
             $WEBSOCKETJSON_FORWIPE = Invoke-WebRequest -Uri http://127.0.0.1:9222/json/version | ConvertFrom-Json
             $WEBSOCKET_FORWIPE = $WEBSOCKETJSON_FORWIPE.webSocketDebuggerUrl
             node source/wipeSessionStorage.js $WEBSOCKET_FORWIPE
         }
     
-        $WEBSOCKETJSON = Invoke-WebRequest -Uri http://127.0.0.1:9222/json/version | ConvertFrom-Json
-        $WEBSOCKET = $WEBSOCKETJSON.webSocketDebuggerUrl
-    
         $BOTS_TO_VOTE_FOR = $USER.bots_to_vote_for
         foreach ($BOT in $BOTS_TO_VOTE_FOR)
         {
-            Open-Chrome($REALSCREEN, $CHROMIUM)
+            Open-Chrome $REALSCREEN $CHROMIUM
     
             $BOTID = $BOTNAME_TOID_CONVERSION.$BOT
             $WEBSOCKETJSON = Invoke-WebRequest -Uri http://127.0.0.1:9222/json/version | ConvertFrom-Json
@@ -77,6 +74,7 @@ function Invoke-Vote {
     
 }
 
+
 $CONFIG_JSON = Get-Content -Path ".\data\config.json" -Raw | ConvertFrom-Json
 $USERS=$CONFIG_JSON.users
 $SETTINGS=$CONFIG_JSON.settings
@@ -87,6 +85,7 @@ $TWO_CAPTCHA_KEY = $SETTINGS.twocaptchaAPIKey
 $REALSCREEN = $SETTINGS.real_screen
 $AUTOLOOP = $SETTINGS.autoloop
 
+
 if ($ADVANCED_SETTINGS.chromiumInstallDirectory -ne "")
 {
     $env:PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = true
@@ -96,7 +95,7 @@ if ($ADVANCED_SETTINGS.chromiumInstallDirectory -ne "")
 if ($AUTOLOOP -match "true")
 {
     while ($true) {
-        Invoke-Vote()
+        Invoke-Vote
         $MIN_SLEEP_TIME
         $MAX_SLEEP_TIME
         $SLEEP_SECONDS = Get-Random -Minimum $MIN_SLEEP_TIME -Maximum $MAX_SLEEP_TIME
@@ -110,5 +109,7 @@ if ($AUTOLOOP -match "true")
 } 
 else 
 {
-    Invoke-Vote()
+    Invoke-Vote
 }
+
+PAUSE
