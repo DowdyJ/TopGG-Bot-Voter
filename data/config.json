@@ -1,0 +1,39 @@
+{
+    "settings": {
+        "real_screen":"FALSE",
+        "twocaptchaAPIKey":"",
+        "autoloop":"FALSE"
+    },
+    "advancedSettings": {
+        "chromiumInstallDirectory":"",
+        "chromeLaunchPause":5,
+        "minTimeToWaitForLoop":43800,
+        "maxTimeToWaitForLoop":45000
+    },
+    "bots": {
+        "karuta":"646937666251915264",
+        "nero":"945683386100514827",
+        "kotoba":"251239170058616833"
+    },
+    "users": [
+        {    
+            "discord_displayname":"DoeJ",
+            "discord_username":"johndoe@example.com",
+            "discord_password":"password",
+            "bots_to_vote_for": 
+                [
+                    "karuta"
+                ]
+        },
+        {    
+            "discord_displayname":"JaneD",
+            "discord_username":"janedoe@example.com",
+            "discord_password":"pass123",
+            "bots_to_vote_for": 
+                [
+                    "karuta",
+                    "nero"
+                ]
+        }    
+    ]
+}
