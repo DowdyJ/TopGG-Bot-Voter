@@ -44,6 +44,9 @@ enum VoteStatus {
         LOGIN_FAIL,
         ALREADY_VOTED_FAIL,
         CAPTCHA_FAIL,
+        DISCORD_NEW_LOCATION_FAIL,
+        FAILED_TO_CLEAR_LOGIN_DATA_FAIL,
+        VOTE_TIMEOUT_FAIL,
         OTHER_CRIT_FAIL,
         OTHER_RETRY_FAIL
 }
@@ -55,6 +58,12 @@ enum MessageType {
     ERROR,
     NONE
 }
+
+function logToFile(data : string) : void {
+    fs.writeFileSync("data/log.txt", `${data}\n`, {
+        flag: "as"
+    });
+};
 
 function logVotingResultToFile(username: string, botID : string, successValue : VoteStatus): void {
 
@@ -74,6 +83,12 @@ function logVotingResultToFile(username: string, botID : string, successValue : 
         case VoteStatus.LOGIN_FAIL:
             resultString = failedToVoteBase + "Failed to log in to Discord";
             break;
+        case VoteStatus.DISCORD_NEW_LOCATION_FAIL:
+            resultString = failedToVoteBase + "Discord flagged new login location";
+            break;
+        case VoteStatus.FAILED_TO_CLEAR_LOGIN_DATA_FAIL:
+            resultString = failedToVoteBase + "Failed to clear prior log in data";
+            break;
         case VoteStatus.OTHER_CRIT_FAIL:
             resultString = failedToVoteBase + "Other major failure";
             break;
@@ -88,9 +103,7 @@ function logVotingResultToFile(username: string, botID : string, successValue : 
             break;
     }
 
-    fs.writeFileSync("log.txt", `${resultString}\n`, {
-        flag: "as"
-    });
+    logToFile(resultString);
 }
 
 function logSuccess(message: string): void {
@@ -186,7 +199,7 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
     catch (err) {
         log(err as string, MessageType.ERROR);
         let screenshots : Promise< string | Buffer >[] = [];
-        (await browser!.pages()).forEach(p => screenshots.push(p.screenshot({path:`error_${new Date()}_${Math.random()}.jpg`, fullPage:true, type:"jpeg", fromSurface:false})));
+        (await browser!.pages()).forEach(p => screenshots.push(p.screenshot({path:`data/error_${new Date()}_${Math.random()}.jpg`, fullPage:true, type:"jpeg", fromSurface:false})));
         await Promise.all(screenshots!);
     } 
     finally {
@@ -238,7 +251,7 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
 
     if (!needsLoggedIn && loggedInUser !== displayName) {
         log(`Did not successfully clear login data of former user. Currently logged in as: ${loggedInUser}, should be: ${displayName}`, MessageType.ERROR);
-        return VoteStatus.OTHER_CRIT_FAIL;
+        return VoteStatus.FAILED_TO_CLEAR_LOGIN_DATA_FAIL;
     }
 
     if (await _checkAlreadyVoted(page)) {
@@ -264,7 +277,7 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
     
                 if (await _checkDiscordNewLocationError(page, cursor)) {
                     log("Discord flagged new location login. Check your email, authorize and try again.", MessageType.ERROR);
-                    return VoteStatus.OTHER_CRIT_FAIL;
+                    return VoteStatus.DISCORD_NEW_LOCATION_FAIL;
                 }
                 if (await _clickLogInButtonOnDiscordLogInPage(page, cursor)) {
                     log("Clicked the log in button again.")
@@ -436,7 +449,7 @@ async function _handleVotingPostLogin(page: puppeteer.Page, cursor: GhostCursor,
                     lastVoteSuccess = true;
                 } else {
                     log(`Failed to vote for ${botName}. Response as follows.`, MessageType.WARNING);
-                    log(await response?.text());
+                    logToFile(`Failure response from top.gg. Bot ID: ${botID}. Details: ${await response?.text()}`);
                     lastVoteSuccess = false;
                 }
             } else {
@@ -790,9 +803,9 @@ async function _clickAuthButton(page: puppeteer.Page, cursor: GhostCursor): Prom
 };
 
 async function _clickVoteButtonOnTopGG(page: puppeteer.Page, cursor: GhostCursor): Promise < void > {
-    log("Waiting for Top.gg...", MessageType.NONE);
+    log("Waiting for Top.gg...", MessageType.INFO);
     await Promise.any([page.waitForNetworkIdle(), sleep(20 * 1000, false)]);
-    log("\nFinished waiting for page.", MessageType.NONE);
+    log("Finished waiting for page.", MessageType.INFO);
 
     await page.evaluate("window.readyToVote();");
 

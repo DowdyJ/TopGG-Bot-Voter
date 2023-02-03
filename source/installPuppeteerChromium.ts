@@ -13,7 +13,7 @@ async function main()
     }
     else 
     {
-        console.log("Chromium already downloaded, skipping.");
+        console.log(`Chromium already downloaded at ${executablePath()}, skipping.`);
     }
 }
 

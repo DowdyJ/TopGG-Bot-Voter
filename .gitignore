@@ -1,4 +1,5 @@
 node_modules/
 .git/
-UserInfo.txt
 *.js
+data/*
+config.json
