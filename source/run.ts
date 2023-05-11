@@ -10,7 +10,7 @@ const { execSync } = require('child_process');
 const scriptDirectory = path.dirname(process.argv[1]);
 shell.cd(scriptDirectory);
 
-function sleep(ms) {
+function sleep(ms : number) {
     return new Promise((resolve) => setTimeout(resolve, ms * 1000));
   }
 
@@ -49,7 +49,7 @@ async function linux_vote() {
   const chromiumPath = config.advancedSettings.chromiumInstallDirectory;
 
   if (chromiumPath !== '') {
-    process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = true;
+    process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true";
     process.env.PUPPETEER_EXECUTABLE_PATH = chromiumPath;
   }
 
@@ -81,8 +81,8 @@ async function linux_vote() {
   }
 }
 
-async function windows_vote(config) {
-    async function openChrome(useRealScreen, chromiumExecPath) {
+async function windows_vote(config : any) {
+    async function openChrome(useRealScreen : string, chromiumExecPath : string) {
         if (useRealScreen.toLowerCase() === 'false') {
           // ...
           // TODO: Reimplement VDesk functionality
@@ -153,7 +153,9 @@ async function windows_vote(config) {
 
 
 const linux_voteloop = (async () => {
-    const shouldLoop = JSON.parse(fs.readFileSync('data/config.json', 'utf8')).settings.autoloop.toLowerCase();
+    const config = JSON.parse(fs.readFileSync('data/config.json', 'utf8')).settings.autoloop.toLowerCase();
+    const shouldLoop = config.settings.autoloop.toLowerCase();
+
     console.log(`Should repeat is set to: ${shouldLoop}`);
     if (shouldLoop === 'false') {
         await linux_vote();
@@ -183,8 +185,8 @@ const windows_voteloop = (async () => {
         (async function () {
           while (true) {
             await windows_vote(config);
-            const minSleepTime = advancedSettings.minTimeToWaitForLoop;
-            const maxSleepTime = advancedSettings.maxTimeToWaitForLoop;
+            const minSleepTime = config.advancedSettings.minTimeToWaitForLoop;
+            const maxSleepTime = config.advancedSettings.maxTimeToWaitForLoop;
             const sleepSeconds = Math.floor(Math.random() * (maxSleepTime - minSleepTime + 1) + minSleepTime);
       
             for (let i = 0; i < sleepSeconds; i++) {
