@@ -169,14 +169,14 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
         const password: string = process.argv[3];
         const displayName : string = process.argv[7];
 
-        let votingResult: VoteStatus = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName);
+        let votingResult: VoteStatus = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName, wsEndPoint);
 
         logVotingResultToFile(displayName, botID, votingResult);
 
         if (votingResult === VoteStatus.CLOUDFLARE_FAIL) {
             log("Waiting 5 minutes before trying again...");
             sleep(5 * 60 * 1000);
-            votingResult = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName);
+            votingResult = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName, wsEndPoint);
 
             if (votingResult === VoteStatus.SUCCESS) {
                 logVotingResultToFile(displayName, botID, votingResult);
@@ -189,7 +189,7 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
         }
         // One more chance for non-critical fails
         if (votingResult === VoteStatus.LOGIN_FAIL || votingResult === VoteStatus.OTHER_RETRY_FAIL) {
-            await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName);
+            await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName, wsEndPoint);
             logVotingResultToFile(displayName, botID, votingResult);
             return;
         }
@@ -219,13 +219,13 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
  * @param botID The ID of the bot to vote for.
  * @returns void
  */
-async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: string, botID: string, _2captchaAPIKey: string, displayName : string): Promise < VoteStatus > {
+async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: string, botID: string, _2captchaAPIKey: string, displayName : string, wsEndpoint: string): Promise < VoteStatus > {
 
     _printCensoredLoginInfo(email, password, botID, displayName);
 
-    const page: puppeteer.Page = await browser.newPage();
+    let page: puppeteer.Page = await browser.newPage();
     page.setDefaultTimeout(20 * 1000);
-
+    
     // This ensures that certain elements of the page are loaded without the need to scroll
     await page.setViewport({
         width: 1920,
@@ -237,13 +237,29 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
 
     const url: string = `https://top.gg/bot/${botID}/vote`;
     await page.goto(url);
+    browser.disconnect();
+    await sleep(10000);
+    var browser: Browser = await initializeBrower(wsEndpoint, _2captchaAPIKey);
+    page = (await browser.pages())[1];
     await Promise.any([page.waitForNetworkIdle(), sleep(10 * 1000, false)]);
 
-    if (await _gotCloudFlared(page)) {
+    if (await _gotCloudFlareBlocked(page)) {
         log("Encountered CloudFlare error. This may be caused by too many connections. Details are below.", MessageType.ERROR);
         log(await _getCloudFlareErrInfo(page), MessageType.NONE);
         await sleep(5000);
         return VoteStatus.CLOUDFLARE_FAIL;
+    }
+
+    await Promise.any([page.waitForSelector("body.chakra-ui-dark"), sleep(10 * 1000, true)]);
+    if (await _gotCloudFlareCAPTCHA(page)) {
+        await sleep(5123);
+        let elementToClick = await page.$("#ctp-checkbox-label");
+        if (elementToClick === null) {
+            console.log("Unable to locate CloudFlare CAPTCHA field to click, aborting.");
+            return VoteStatus.CLOUDFLARE_FAIL;
+        }
+        await clickElementWithGhostCursor(cursor, elementToClick);
+        await _bypassCaptchas(page, cursor, _2captchaAPIKey);
     }
     
     let needsLoggedIn : boolean = await _needsLoggedIn(page);
@@ -333,6 +349,15 @@ async function sleep(ms: number, log: boolean = true) {
 
     return
 };
+
+async function _gotCloudFlareCAPTCHA(page : puppeteer.Page) {
+    let captchaBox = await page.$("#turnstile-wrapper");
+    if (captchaBox !== null) {
+        log("Encountered clouflare CAPTCHA challenge.", MessageType.WARNING);
+        return true;
+    }
+    return false;
+}
 
 async function slowType(page: puppeteer.Page, whatToType: string) {
     for (let index = 0; index < whatToType.length; index++) {
@@ -512,7 +537,7 @@ async function _getCloudFlareErrInfo(page: puppeteer.Page): Promise < string > {
     return `${errorLabel}: ${errorNumber}`;
 }
 
-async function _gotCloudFlared(page: puppeteer.Page): Promise < boolean > {
+async function _gotCloudFlareBlocked(page: puppeteer.Page): Promise < boolean > {
     //cf-error-details
     if (await page.$("div[class='cf-wrapper']"))
         return true;
@@ -641,12 +666,13 @@ async function initializeBrower(wsEndpoint: string, _2captchaAPIKey: string): Pr
         })
     );
 
-    //const stealthPlugin = require('puppeteer-extra-plugin-stealth')();
+    const stealthPlugin = require('puppeteer-extra-plugin-stealth')();
 
-    //puppeteer_e.use(stealthPlugin);
+    puppeteer_e.use(stealthPlugin);
 
     return await puppeteer_e.connect({
         browserWSEndpoint: wsEndpoint,
+        targetFilter: (target) => !!target.url
     });
 };
 
