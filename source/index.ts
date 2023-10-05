@@ -223,7 +223,7 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
 
     _printCensoredLoginInfo(email, password, botID, displayName);
 
-    let page: puppeteer.Page = await browser.newPage();
+    let page: puppeteer.Page = (await browser.pages())[0];
     page.setDefaultTimeout(20 * 1000);
     
     // This ensures that certain elements of the page are loaded without the need to scroll
@@ -232,16 +232,21 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
         height: 1080
     });
 
-    const cursor: ghostcursor.GhostCursor = createCursor(page);
+    let cursor: ghostcursor.GhostCursor = createCursor(page);
     await installMouseHelper(page);
 
     const url: string = `https://top.gg/bot/${botID}/vote`;
     await page.goto(url);
     browser.disconnect();
-    await sleep(10000);
+    await sleep(10 * 1000);
     var browser: Browser = await initializeBrower(wsEndpoint, _2captchaAPIKey);
-    page = (await browser.pages())[1];
-    await Promise.any([page.waitForNetworkIdle(), sleep(10 * 1000, false)]);
+    page = (await browser.pages())[0];
+    cursor = createCursor(page);
+    
+    await page.setViewport({
+        width: 1920,
+        height: 1080
+    });
 
     if (await _gotCloudFlareBlocked(page)) {
         log("Encountered CloudFlare error. This may be caused by too many connections. Details are below.", MessageType.ERROR);
@@ -250,16 +255,18 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
         return VoteStatus.CLOUDFLARE_FAIL;
     }
 
-    await Promise.any([page.waitForSelector("body.chakra-ui-dark"), sleep(10 * 1000, true)]);
     if (await _gotCloudFlareCAPTCHA(page)) {
-        await sleep(5123);
-        let elementToClick = await page.$("#ctp-checkbox-label");
+        log("Found CF CAPTCHA");
+        let elementToClick = (await page.$$("iframe"))[0];
         if (elementToClick === null) {
-            console.log("Unable to locate CloudFlare CAPTCHA field to click, aborting.");
+            log("Unable to locate CloudFlare CAPTCHA field to click, aborting.", MessageType.ERROR);
             return VoteStatus.CLOUDFLARE_FAIL;
         }
+
         await clickElementWithGhostCursor(cursor, elementToClick);
-        await _bypassCaptchas(page, cursor, _2captchaAPIKey);
+        elementToClick.click();
+        
+        await sleep(5000);
     }
     
     let needsLoggedIn : boolean = await _needsLoggedIn(page);
@@ -278,7 +285,7 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
     if (needsLoggedIn) {
         await _clickLoginButtonOnTopGG(page, cursor);
 
-        await Promise.all([page.waitForNetworkIdle(), sleep(5 * 1000)]);
+        await Promise.any([page.waitForNetworkIdle(), sleep(10 * 1000)]);
 
         if (!(await _onAuthPage(page)) || !(await _hitNotYouPromptIfUserNamesDontMatch(page, cursor, displayName))) {
             await _loginOntoDiscord(page, cursor, email, password);
@@ -521,7 +528,7 @@ async function _getCurrentlyLoggedInUserOnTopGG(page : puppeteer.Page) : Promise
         return "";
 
     let username : string | null = await results.evaluate(el => el.getAttribute("data-testid"));
-    
+    log(`Extracted the name ${username}`)
     if (username === null)
     {
         log("Failed to extract username from page.", MessageType.WARNING);
@@ -538,7 +545,7 @@ async function _getCloudFlareErrInfo(page: puppeteer.Page): Promise < string > {
 }
 
 async function _gotCloudFlareBlocked(page: puppeteer.Page): Promise < boolean > {
-    //cf-error-details
+    
     if (await page.$("div[class='cf-wrapper']"))
         return true;
     else
@@ -666,13 +673,13 @@ async function initializeBrower(wsEndpoint: string, _2captchaAPIKey: string): Pr
         })
     );
 
-    const stealthPlugin = require('puppeteer-extra-plugin-stealth')();
+    // const stealthPlugin = require('puppeteer-extra-plugin-stealth')();
 
-    puppeteer_e.use(stealthPlugin);
+    // puppeteer_e.use(stealthPlugin);
 
     return await puppeteer_e.connect({
         browserWSEndpoint: wsEndpoint,
-        targetFilter: (target) => !!target.url
+        targetFilter: (target) => !!target.url,
     });
 };
 
@@ -705,13 +712,15 @@ function _printCensoredLoginInfo(email : string, password : string, botID : stri
 async function _needsLoggedIn(page: puppeteer.Page): Promise < boolean > {
     await sleep(5000); //on page load
 
-    var numberOfMatches: number = (await page.$x("//a[text()='Login to vote']")).length;
-
-    if (numberOfMatches) {
-        log("User not signed in.")
+    let results = await page.$("button[id='popover-trigger-10']");
+    if (results == null) {
         return true;
     }
 
+    let username : string | null = await results.evaluate(el => el.getAttribute("data-testid"));
+    if (username == "false") {
+        return true;
+    }
 
     log("User already signed in.")
     return false;
@@ -719,7 +728,7 @@ async function _needsLoggedIn(page: puppeteer.Page): Promise < boolean > {
 
 async function _clickLoginButtonOnTopGG(page: puppeteer.Page, cursor: GhostCursor): Promise < void > {
     log("Attempting to click log in button on top.gg...");
-    let loginToVoteButton: puppeteer.ElementHandle < Node > | null = await page.waitForXPath('//a[text()="Login to vote"]');
+    let loginToVoteButton: puppeteer.ElementHandle < Node > | null = await page.waitForXPath('//a[text()="Login"]');
 
     if (loginToVoteButton == null) {
         log('Failed to click login button on Top.gg', MessageType.ERROR);

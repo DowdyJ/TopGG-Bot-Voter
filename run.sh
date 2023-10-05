@@ -6,8 +6,8 @@ cd $SCRIPT_DIRECTORY
 LaunchChromium() 
 {
     
-    # CHROMIUM=$(node source/getChromiumExecutablePath.js)
-    CHROMIUM=$(which google-chrome)
+    CHROMIUM=$(node source/getChromiumExecutablePath.js)
+    # CHROMIUM=$(which chromium)
     echo Found Chrome at $(which chromium) and using it from $CHROMIUM
     REAL_SCREEN=$(cat data/config.json | jq -r .settings.real_screen)
 
