@@ -14,8 +14,8 @@ https://nodejs.org/en/download/ <br>
 <br>
 <h3>Instructions</h3>
 <ol>
-<li>Change to the source/ directory and run <code>sudo make init</code>. NOTE: This script requires EITHER sudo permissions to install Xvfb and jq OR for those to be installed ahead of time. if you have both installed already, feel free to leave off the sudo c:<br>
-Note: depending on permissions the script may also have issues compiling the TypeScript without <code>sudo</code></li>
+<li>Install the `jq` and `xvfb` packages for your system.</li>
+<li>Change to the source/ directory and run <code>make init</code>.</li>
 <li><a href="#configjson">Edit <code>data/config.json</code></a></li>
 <li>Run <code>./run.sh</code>. After initial setup, this is the only step you need to do.</li>
 </ol>
