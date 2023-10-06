@@ -145,72 +145,6 @@ function log(message: string, messageType: MessageType = MessageType.INFO): void
     }
 }
 
-(async () => {
-    try {
-        g_realtty = (process.argv[8] == "true" ? true : false);
-
-        const wsEndPoint: string = process.argv[4];
-        log(`Connecting to endpoint ${wsEndPoint}`);
-
-        let _2captchaAPIKey: string = process.argv[6];
-
-        if (_2captchaAPIKey.length !== 32) {
-            log("Assuming not using 2Captcha's Service.", MessageType.INFO);
-            _2captchaAPIKey = '';
-        } else {
-            log("Using 2Captcha.", MessageType.INFO);
-        }
-
-
-        var browser: Browser = await initializeBrower(wsEndPoint, _2captchaAPIKey);
-
-        const botID: string = process.argv[5];
-        const email: string = process.argv[2];
-        const password: string = process.argv[3];
-        const displayName : string = process.argv[7];
-
-        let votingResult: VoteStatus = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName, wsEndPoint);
-
-        logVotingResultToFile(displayName, botID, votingResult);
-
-        if (votingResult === VoteStatus.CLOUDFLARE_FAIL) {
-            log("Waiting 5 minutes before trying again...");
-            sleep(5 * 60 * 1000);
-            votingResult = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName, wsEndPoint);
-
-            if (votingResult === VoteStatus.SUCCESS) {
-                logVotingResultToFile(displayName, botID, votingResult);
-                return;
-            } else if (votingResult === VoteStatus.CLOUDFLARE_FAIL) {
-                log("CloudFlare rejected the connection again. Try waiting a while before trying again.", MessageType.ERROR);
-                logVotingResultToFile(displayName, botID, votingResult);
-                return;
-            }
-        }
-        // One more chance for non-critical fails
-        if (votingResult === VoteStatus.LOGIN_FAIL || votingResult === VoteStatus.OTHER_RETRY_FAIL) {
-            await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName, wsEndPoint);
-            logVotingResultToFile(displayName, botID, votingResult);
-            return;
-        }
-
-        return;
-    } 
-    catch (err) {
-        log(err as string, MessageType.ERROR);
-        let screenshots : Promise< string | Buffer >[] = [];
-        (await browser!.pages()).forEach(p => screenshots.push(p.screenshot({path:`data/error_${new Date()}_${Math.random()}.jpg`, fullPage:true, type:"jpeg", fromSurface:false})));
-        await Promise.all(screenshots!);
-    } 
-    finally {
-        try {
-            await browser!.close();
-        } catch (err) {
-            log(err as string, MessageType.ERROR);
-        }
-    }
-})();
-
 /**
  * This will attempt to log in through Discord if necessary, then submit a vote on Top.gg for the bot specified by botID.
  * @param browser A browser instance connected to Puppeteer.
@@ -262,11 +196,12 @@ async function voteOnTopGG(browser: puppeteer.Browser, email: string, password: 
             log("Unable to locate CloudFlare CAPTCHA field to click, aborting.", MessageType.ERROR);
             return VoteStatus.CLOUDFLARE_FAIL;
         }
+        await sleep(10 * 1000);
 
         await clickElementWithGhostCursor(cursor, elementToClick);
         elementToClick.click();
         
-        await sleep(5000);
+        await sleep(10 * 1000);
     }
     
     let needsLoggedIn : boolean = await _needsLoggedIn(page);
@@ -568,23 +503,6 @@ async function getBotName(page: puppeteer.Page): Promise < string > {
     }
 };
 
-async function convertElementToCenteredVector(element: puppeteer.ElementHandle < Node > | puppeteer.ElementHandle < Element > | null): Promise < Vector | null > {
-    try {
-        let boundingBox: puppeteer.BoundingBox | null = await (element as puppeteer.ElementHandle < Element > ).boundingBox();
-
-        let vector: Vector = {
-            x: (boundingBox?.x as number + (boundingBox?.width as number / 2)),
-            y: (boundingBox?.y as number + (boundingBox?.height as number / 2))
-        };
-
-        return vector;
-    } catch (err) {
-        console.log(err);
-    }
-
-    return null;
-};
-
 /**
  * 
  * @param page The page, which should be navigated to the Bot's Top.gg vote page.
@@ -620,40 +538,6 @@ async function clickElementWithGhostCursor(cursor: ghostcursor.GhostCursor, elem
     await cursor.click(element as puppeteer.ElementHandle < Element > , clickOptions);
     return;
 };
-
-async function clickElementWithGhostCursorBySelector(page: puppeteer.Page, cursor: ghostcursor.GhostCursor, selector: string, xpathOrCSS: string = 'CSS', clickOptions: ghostcursor.ClickOptions | undefined = undefined): Promise < boolean > {
-    let element: puppeteer.ElementHandle < Element > | puppeteer.ElementHandle < Node > | null;
-
-    if (xpathOrCSS.toUpperCase() === "XPATH") {
-        var elements: puppeteer.ElementHandle < Node > [] = await page.$x(selector);
-
-        if (elements.length === 0) {
-            console.log(`Failed to find any elements with XPath selector ${selector}.`);
-            return false;
-        } else if (elements.length > 1) {
-            console.log(`Found more than one element with XPath selector: ${selector}. Found ${elements.length} elements. Clicking first...`);
-            element = elements[0];
-
-            await clickElementWithGhostCursor(cursor, element);
-            return true;
-        } else {
-            await clickElementWithGhostCursor(cursor, elements[0]);
-            return true;
-        }
-    } else if (xpathOrCSS.toUpperCase() === "CSS") {
-        element = await page.$(selector);
-
-        if (element == null)
-            return false;
-
-        clickElementWithGhostCursor(cursor, element);
-        return true;
-    } else {
-        console.log(`Failed to parse selector method: ${xpathOrCSS}`);
-        return false;
-    }
-};
-
 
 async function initializeBrower(wsEndpoint: string, _2captchaAPIKey: string): Promise < Browser > {
 
@@ -853,3 +737,70 @@ async function _clickVoteButtonOnTopGG(page: puppeteer.Page, cursor: GhostCursor
     log("Vote button clicked.");
     return;
 };
+
+
+(async () => {
+    try {
+        g_realtty = (process.argv[8] == "true" ? true : false);
+
+        const wsEndPoint: string = process.argv[4];
+        log(`Connecting to endpoint ${wsEndPoint}`);
+
+        let _2captchaAPIKey: string = process.argv[6];
+
+        if (_2captchaAPIKey.length !== 32) {
+            log("Assuming not using 2Captcha's Service.", MessageType.INFO);
+            _2captchaAPIKey = '';
+        } else {
+            log("Using 2Captcha.", MessageType.INFO);
+        }
+
+
+        var browser: Browser = await initializeBrower(wsEndPoint, _2captchaAPIKey);
+
+        const botID: string = process.argv[5];
+        const email: string = process.argv[2];
+        const password: string = process.argv[3];
+        const displayName : string = process.argv[7];
+
+        let votingResult: VoteStatus = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName, wsEndPoint);
+
+        logVotingResultToFile(displayName, botID, votingResult);
+
+        if (votingResult === VoteStatus.CLOUDFLARE_FAIL) {
+            log("Waiting 5 minutes before trying again...");
+            sleep(5 * 60 * 1000);
+            votingResult = await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName, wsEndPoint);
+
+            if (votingResult === VoteStatus.SUCCESS) {
+                logVotingResultToFile(displayName, botID, votingResult);
+                return;
+            } else if (votingResult === VoteStatus.CLOUDFLARE_FAIL) {
+                log("CloudFlare rejected the connection again. Try waiting a while before trying again.", MessageType.ERROR);
+                logVotingResultToFile(displayName, botID, votingResult);
+                return;
+            }
+        }
+        // One more chance for non-critical fails
+        if (votingResult === VoteStatus.LOGIN_FAIL || votingResult === VoteStatus.OTHER_RETRY_FAIL) {
+            await voteOnTopGG(browser, email, password, botID, _2captchaAPIKey, displayName, wsEndPoint);
+            logVotingResultToFile(displayName, botID, votingResult);
+            return;
+        }
+
+        return;
+    } 
+    catch (err) {
+        log(err as string, MessageType.ERROR);
+        let screenshots : Promise< string | Buffer >[] = [];
+        (await browser!.pages()).forEach(p => screenshots.push(p.screenshot({path:`data/error_${new Date()}_${Math.random()}.jpg`, fullPage:true, type:"jpeg", fromSurface:false})));
+        await Promise.all(screenshots!);
+    } 
+    finally {
+        try {
+            await browser!.close();
+        } catch (err) {
+            log(err as string, MessageType.ERROR);
+        }
+    }
+})();
