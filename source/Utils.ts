@@ -1,5 +1,5 @@
-import { MessageType } from 'Enum/MessageType';
-import { Logger } from 'Logger';
+import { MessageType } from './Enum/MessageType';
+import { Logger } from './Logger';
 import { ClickOptions, GhostCursor } from 'ghost-cursor';
 import { Vector } from 'ghost-cursor/lib/math';
 import * as puppeteer from 'puppeteer'

@@ -1,11 +1,11 @@
-import { MessageType } from "Enum/MessageType";
-import { Logger } from "Logger";
-import { Utils } from "Utils";
+import { MessageType } from "../Enum/MessageType";
+import { Logger } from "../Logger";
+import { Utils } from "../Utils";
 import { GhostCursor } from "ghost-cursor";
 import * as puppeteer from "puppeteer"
 import { Page } from "puppeteer";
 import { CaptchaHandler } from "./CaptchaHandler";
-import { VoteStatus } from "Enum/VoteStatus";
+import { VoteStatus } from "../Enum/VoteStatus";
 
 
 

@@ -1,5 +1,6 @@
-import { VoteStatus } from "Enum/VoteStatus";
-import { MessageType } from "Enum/MessageType";
+import { VoteStatus } from "./Enum/VoteStatus";
+import { MessageType } from "./Enum/MessageType";
+import fs from "fs";
 
 export class Logger {
     static readonly BOLD = '\u001b[1m';

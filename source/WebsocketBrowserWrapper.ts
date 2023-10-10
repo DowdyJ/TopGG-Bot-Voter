@@ -6,10 +6,9 @@ import {
     Page
 } from 'puppeteer';
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
-
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha'
-import { Logger } from "Logger";
-import { MessageType } from "Enum/MessageType";
+import { Logger } from "./Logger";
+import { MessageType } from "./Enum/MessageType";
 
 
 export class WebsocketBrowserWrapper {

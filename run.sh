@@ -3,25 +3,30 @@
 SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd $SCRIPT_DIRECTORY
 
+ECHO_PREFIX_1=$'\e[0m\e[38;5;236m'
+ECHO_PREFIX_2="[\x20\x20SHELL\x20\x20]"
+ECHO_PREFIX_3=$'\e[0m'
+ECHO_PREFIX="${ECHO_PREFIX_1}${ECHO_PREFIX_2}${ECHO_PREFIX_3}"
+
 LaunchChromium() 
 {
     
     CHROMIUM=$(node source/getChromiumExecutablePath.js)
     # CHROMIUM=$(which chromium)
-    echo Found Chrome at $(which chromium) and using it from $CHROMIUM
+    echo -e $ECHO_PREFIX Found Chrome at $(which chromium) and using it from $CHROMIUM
     REAL_SCREEN=$(cat data/config.json | jq -r .settings.real_screen)
 
     if [ ${REAL_SCREEN,,} = "false" ]
     then
-        echo Launching Chromium: $CHROMIUM with virtual frame buffer...
-        xvfb-run -a -s "-ac" exec $CHROMIUM --remote-debugging-port=9222 --disable-gpu --no-sandbox &>/dev/null &
-        echo Running Xvfb on server number `printenv DISPLAY`
+        echo -e $ECHO_PREFIX Launching Chromium: $CHROMIUM with virtual frame buffer...
+        xvfb-run -a -s "-ac" exec $CHROMIUM --remote-debugging-port=9222 --disable-gpu --disable-dev-shm-usage --disable-setuid-sandbox --no-first-run --no-sandbox --no-zygote --deterministic-fetch --disable-features=IsolateOrigins --disable-site-isolation-trials &>/dev/null &
+        echo -e $ECHO_PREFIX Running Xvfb on server number `printenv DISPLAY`
     elif [ ${REAL_SCREEN,,} = "true" ]
     then
-        echo Launching Chromium: $CHROMIUM with real display...  
-        exec $CHROMIUM --remote-debugging-port=9222 --disable-gpu --no-sandbox &>/dev/null &
+        echo -e $ECHO_PREFIX Launching Chromium: $CHROMIUM with real display...  
+        exec $CHROMIUM --remote-debugging-port=9222 --disable-gpu --disable-dev-shm-usage --disable-setuid-sandbox --no-first-run --no-sandbox --no-zygote --deterministic-fetch --disable-features=IsolateOrigins --disable-site-isolation-trials &>/dev/null &
     else
-        echo "Please use \"true\" or \"false\" for real_screen in data/config.json"
+        echo -e $ECHO_PREFIX "Please use \"true\" or \"false\" for real_screen in data/config.json"
         exit
     fi
 
@@ -109,11 +114,10 @@ then
     do
         Vote
         SECONDS_TO_SLEEP=$(shuf -i ${MINLOOPTIME}-${MAXLOOPTIME} -n1)
-        echo "Sleeping for ${SECONDS_TO_SLEEP} seconds."
-        for i in $(seq 1 $SECONDS_TO_SLEEP); do   
-            echo -e "\e[1A\e[KSleeping... $(($SECONDS_TO_SLEEP - $i))"
-            sleep 1
-        done
-        echo "Sleeping for $SECONDS_TO_SLEEP seconds..."
+        echo -e $ECHO_PREFIX "Sleeping for ${SECONDS_TO_SLEEP} seconds."
+        # for i in $(seq 1 $SECONDS_TO_SLEEP); do   
+        #     echo -e "\e[1A\e[KSleeping... $(($SECONDS_TO_SLEEP - $i))"
+        #     sleep 1
+        # done
     done
 fi

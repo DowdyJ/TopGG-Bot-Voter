@@ -1,12 +1,12 @@
-import { VoteStatus } from "Enum/VoteStatus";
-import { MessageType } from "Enum/MessageType";
-import { WebsocketBrowserWrapper } from "WebsocketBrowserWrapper";
-import { Logger } from "Logger";
-import { CaptchaHandler } from "Handler/CaptchaHandler";
-import { DiscordHandler } from "Handler/DiscordHandler";
-import { TopGGHandler } from "Handler/TopGGHandler";
-import { CloudFlareHandler } from "Handler/CloudFlareHandler";
-import { Utils } from "Utils";
+import { VoteStatus } from "./Enum/VoteStatus";
+import { MessageType } from "./Enum/MessageType";
+import { WebsocketBrowserWrapper } from "./WebsocketBrowserWrapper";
+import { Logger } from "./Logger";
+import { CaptchaHandler } from "./Handler/CaptchaHandler";
+import { DiscordHandler } from "./Handler/DiscordHandler";
+import { TopGGHandler } from "./Handler/TopGGHandler";
+import { CloudFlareHandler } from "./Handler/CloudFlareHandler";
+import { Utils } from "./Utils";
 
 
 (async () => {

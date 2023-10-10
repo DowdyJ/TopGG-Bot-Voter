@@ -1,11 +1,12 @@
-import { MessageType } from "Enum/MessageType";
-import { VoteStatus } from "Enum/VoteStatus";
-import { Logger } from "Logger";
-import { Utils } from "Utils";
+import { MessageType } from "../Enum/MessageType";
+import { VoteStatus } from "../Enum/VoteStatus";
+import { Logger } from "../Logger";
+import { Utils } from "../Utils";
 import { GhostCursor } from "ghost-cursor";
 import * as puppeteer from "puppeteer"
 import { Page } from "puppeteer";
 import { CaptchaHandler } from "./CaptchaHandler";
+import { Vector } from "ghost-cursor/lib/math";
 
 
 
@@ -50,17 +51,28 @@ export class CloudFlareHandler {
             this.logger.log("Unable to locate CloudFlare CAPTCHA field to click, aborting.", MessageType.ERROR);
             return VoteStatus.CLOUDFLARE_FAIL;
         }
-
-        // Get the actual area to click within the IFrame. We then wait for the decision by CF on if we need to click the box or not.
-        let elementToClick = await iframeContainer.$('#challenge-stage');
+        
+        // Wait for the decision by CF on if we need to click the box or not.
         await Utils.sleep(10 * 1000);
 
         // This element is present on the top.gg side, but not on the CF side. If the element is not found, we need to solve the CF puzzle.
         if ((await page.$x("/html/body/div[1]/div/div/div[1]/footer/div/div[1]/p[1]")).length == 0) {
             this.logger.log("Forced CF CAPTCHA");
             try {       
-                await Utils.moveToElementWithGhostCursor(cursor, elementToClick);
-                await elementToClick!.click();
+                let captchaBoundingBox = await iframeContainer.boundingBox();
+                
+                let clickVector: Vector = {
+                    x: (captchaBoundingBox?.x as number + (captchaBoundingBox?.width as number * 0.1)),
+                    y: (captchaBoundingBox?.y as number + ((captchaBoundingBox?.height as number) / 2))
+                }
+                
+                this.logger.log(`Attemping to click CAPTCHA at ${clickVector.x}, ${clickVector.y}`)
+                await cursor.moveTo(clickVector);
+                await Utils.sleep(1000, false);
+
+                await cursor.click(undefined, {
+                    paddingPercentage: 0
+                });
             }
             catch (err) {
                 this.logger.log(err as string, MessageType.ERROR);

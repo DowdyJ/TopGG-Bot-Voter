@@ -1,13 +1,13 @@
-import { Logger } from "Logger";
+import { Logger } from "../Logger";
 import * as puppeteer from "puppeteer"
-import { MessageType } from "Enum/MessageType";
+import { MessageType } from "../Enum/MessageType";
 import { GhostCursor, createCursor, installMouseHelper } from "ghost-cursor";
-import { Utils } from "Utils";
+import { Utils } from "../Utils";
 import { CaptchaHandler } from "./CaptchaHandler";
-import { VoteStatus } from "Enum/VoteStatus";
+import { VoteStatus } from "../Enum/VoteStatus";
 import { CloudFlareHandler } from "./CloudFlareHandler";
 import { DiscordHandler } from "./DiscordHandler";
-import { WebsocketBrowserWrapper } from "WebsocketBrowserWrapper";
+import { WebsocketBrowserWrapper } from "../WebsocketBrowserWrapper";
 import { Page } from "puppeteer";
 
 
@@ -51,6 +51,7 @@ export class TopGGHandler {
         
         page = (await browserWrapper.getOpenPages() as Page[])[0];
         cursor = createCursor(page);
+        await installMouseHelper(page);
         
         await page.setViewport({
             width: 1920,

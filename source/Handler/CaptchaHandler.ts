@@ -1,6 +1,6 @@
-import { MessageType } from "Enum/MessageType";
-import { Logger } from "Logger";
-import { Utils } from "Utils";
+import { MessageType } from "../Enum/MessageType";
+import { Logger } from "../Logger";
+import { Utils } from "../Utils";
 import { GhostCursor } from "ghost-cursor";
 import { Vector } from "ghost-cursor/lib/math";
 import { BoundingBox, Page } from "puppeteer";
