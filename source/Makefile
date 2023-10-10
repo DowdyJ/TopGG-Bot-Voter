@@ -34,3 +34,5 @@ init:
 	
 clean:
 	-rm -f *.js
+	-rm -f Handler/*.js
+	-rm -f Enum/*.js
