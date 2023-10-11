@@ -9,6 +9,7 @@ import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha'
 import { Logger } from "./Logger";
 import { MessageType } from "./Enum/MessageType";
+import { GhostCursor, createCursor } from "ghost-cursor";
 
 
 export class WebsocketBrowserWrapper {
@@ -16,12 +17,18 @@ export class WebsocketBrowserWrapper {
     private wsEndpoint : string;
     private _2CaptchaApiKey: string;
     private browserInstance: puppeteer.Browser | undefined;
+    private cursor: GhostCursor | undefined;
     private logger: Logger;
+    private pageHeight: number;
+    private pageWidth: number;
+    private mouseDirty: boolean = true;
 
-    public constructor(logger: Logger, wsEndpoint : string, _2captchaApiKey: string) {
+    public constructor(logger: Logger, wsEndpoint : string, _2captchaApiKey: string, pageWidth: number = 1920, pageHeight: number = 1080) {
         this.wsEndpoint = wsEndpoint;
         this._2CaptchaApiKey = _2captchaApiKey;
         this.logger = logger;
+        this.pageWidth = pageWidth;
+        this.pageHeight = pageHeight;
 
         puppeteer_e.use(
             AdblockerPlugin({
@@ -59,10 +66,23 @@ export class WebsocketBrowserWrapper {
             await this.reconnectToBrowserInstance();
         }
         catch (err) {
-            this.logger.log(err as string, MessageType.ERROR);
+            this.logger.log((err as Error).message, MessageType.ERROR);
         }
 
         return this.browserInstance!;
+    }
+
+    public async getCursor(pageNumber: number) {
+        if (this.cursor == null) {
+            this.cursor = createCursor(await this.getNthPage(pageNumber));
+        }
+        if (this.mouseDirty) {
+            this.mouseDirty = false;
+            this.cursor = createCursor(await this.getNthPage(pageNumber));
+        }    
+        
+
+        return this.cursor;        
     }
 
     public async cleanup() {
@@ -82,23 +102,24 @@ export class WebsocketBrowserWrapper {
                     await pages[i].close();
                 }
                 catch (err) {
-                    this.logger.log(err as string, MessageType.ERROR);
+                    // this.logger.log((err as Error).message, MessageType.ERROR);
                 }
             }
 
             await this.browserInstance.close();
             this.logger.log("Finshed cleaning up.")
         } catch (err) {
-            this.logger.log(err as string, MessageType.ERROR);
+            this.logger.log((err as Error).message, MessageType.ERROR);
         }
     }
 
     public disconnectFromBrowserInstance() {
         try {
+            this.mouseDirty = true;
             this.browserInstance!.disconnect();
         }
         catch (err) {
-            this.logger.log(err as string, MessageType.WARNING);
+            this.logger.log((err as Error).message, MessageType.WARNING);
         }
     }
 
@@ -107,7 +128,7 @@ export class WebsocketBrowserWrapper {
             await this.initialize();
         }
         catch (err) {
-            this.logger.log(err as string, MessageType.WARNING);
+            this.logger.log((err as Error).message, MessageType.WARNING);
         }
     }
 
@@ -121,6 +142,22 @@ export class WebsocketBrowserWrapper {
         }
 
         return await this.browserInstance.pages();
+    }
+
+    public async getNthPage(pageNumber: number): Promise<Page> {
+
+        try {
+            let page = (await this.getOpenPages() as Page[])[pageNumber] as Page;
+            if (page.viewport()?.width !== this.pageWidth || page.viewport()?.height !== this.pageHeight) {
+                await page.setViewport({width: this.pageWidth, height: this.pageHeight});
+            }
+
+            return page;
+        }
+        catch (err) {
+            this.logger.log(`Failed to get page number ${pageNumber} from browser. Returning page 0`);
+            return (await this.getOpenPages() as Page[])[0] as Page;;
+        }
     }
 
     public async screenshotAllOpenPages() {

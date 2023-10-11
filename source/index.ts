@@ -22,6 +22,7 @@ import { Utils } from "./Utils";
     const _2captchaAPIKey: string = process.argv[6];
 
     const logger: Logger = new Logger();
+
     const captchaHandler: CaptchaHandler = new CaptchaHandler(logger, _2captchaAPIKey);
     const discordHandler: DiscordHandler = new DiscordHandler(logger, captchaHandler, displayName, email, password);
     const cfHandler: CloudFlareHandler = new CloudFlareHandler(logger, captchaHandler);
@@ -30,7 +31,7 @@ import { Utils } from "./Utils";
     const browser: WebsocketBrowserWrapper = new WebsocketBrowserWrapper(logger, wsEndPoint, _2captchaAPIKey);
     await browser.initialize();
 
-
+    
     try {
         let votingResult: VoteStatus = await topGGHandler.voteOnTopGG(browser, botID, displayName);
 
@@ -38,7 +39,7 @@ import { Utils } from "./Utils";
         
         if (votingResult === VoteStatus.CLOUDFLARE_FAIL) {
             logger.log("Waiting 5 minutes before trying again...");
-            sleep(5 * 60 * 1000);
+            Utils.sleep(5 * 60 * 1000);
             votingResult = await topGGHandler.voteOnTopGG(browser, botID, displayName);
 
             if (votingResult === VoteStatus.SUCCESS) {
@@ -61,7 +62,7 @@ import { Utils } from "./Utils";
         return;
     } 
     catch (err) {
-        logger.log(err as string, MessageType.ERROR);
+        logger.log((err as Error).message, MessageType.ERROR);
         logger.log("Saving screenshots of open tabs to data/ ...");
         await browser.screenshotAllOpenPages();
         logger.log("Finished screenshotting tabs.");

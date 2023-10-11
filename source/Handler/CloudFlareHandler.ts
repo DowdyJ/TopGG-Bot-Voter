@@ -4,9 +4,10 @@ import { Logger } from "../Logger";
 import { Utils } from "../Utils";
 import { GhostCursor } from "ghost-cursor";
 import * as puppeteer from "puppeteer"
-import { Page } from "puppeteer";
+import { ElementHandle, Page } from "puppeteer";
 import { CaptchaHandler } from "./CaptchaHandler";
 import { Vector } from "ghost-cursor/lib/math";
+import { WebsocketBrowserWrapper } from "WebsocketBrowserWrapper";
 
 
 
@@ -44,7 +45,14 @@ export class CloudFlareHandler {
         return false;
     }
 
-    async bypassCFCaptcha(page: Page, cursor: GhostCursor) {
+    /**
+     * This function will consume the page object. It must be reassigned after calling the function.
+     * @param page 
+     * @param cursor 
+     * @param browser 
+     * @returns 
+     */
+    async bypassCFCaptcha(page: Page, cursor: GhostCursor, browser: WebsocketBrowserWrapper): Promise<VoteStatus> {
         // IFrame containing the checkbox to continue
         let iframeContainer = (await page.$$("iframe"))[0];
         if (iframeContainer === null) {
@@ -53,33 +61,36 @@ export class CloudFlareHandler {
         }
         
         // Wait for the decision by CF on if we need to click the box or not.
-        await Utils.sleep(10 * 1000);
+        // await Utils.sleep(10 * 1000);
 
         // This element is present on the top.gg side, but not on the CF side. If the element is not found, we need to solve the CF puzzle.
-        if ((await page.$x("/html/body/div[1]/div/div/div[1]/footer/div/div[1]/p[1]")).length == 0) {
+        if (await this.gotCloudFlareCAPTCHA(page)) {
             this.logger.log("Forced CF CAPTCHA");
-            try {       
+            try {
                 let captchaBoundingBox = await iframeContainer.boundingBox();
                 
                 let clickVector: Vector = {
-                    x: (captchaBoundingBox?.x as number + (captchaBoundingBox?.width as number * 0.1)),
-                    y: (captchaBoundingBox?.y as number + ((captchaBoundingBox?.height as number) / 2))
+                    x: (captchaBoundingBox?.x as number + (captchaBoundingBox?.width as number * 0.2)),
+                    y: (captchaBoundingBox?.y as number + 7 * ((captchaBoundingBox?.height as number) / 16))
                 }
                 
-                this.logger.log(`Attemping to click CAPTCHA at ${clickVector.x}, ${clickVector.y}`)
                 await cursor.moveTo(clickVector);
                 await Utils.sleep(1000, false);
 
                 await cursor.click(undefined, {
                     paddingPercentage: 0
                 });
+
+                browser.disconnectFromBrowserInstance();
             }
             catch (err) {
-                this.logger.log(err as string, MessageType.ERROR);
+                this.logger.log((err as Error).message, MessageType.ERROR);
                 return VoteStatus.OTHER_CRIT_FAIL;
             }
             
             await Utils.sleep(10 * 1000);
+            await browser.reconnectToBrowserInstance();
+            page = (await browser.getOpenPages() as Page[])[0];
             await this.captchaHandler.bypassCaptchas(page, cursor);
         }
         else {

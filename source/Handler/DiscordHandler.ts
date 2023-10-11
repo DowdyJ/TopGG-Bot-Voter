@@ -150,7 +150,7 @@ export class DiscordHandler {
             return;
         }
 
-        await sleep((Math.random() * 1000) + 200);
+        await Utils.sleep((Math.random() * 1000) + 200);
 
         await cursor.move("div[class*='oauth2Wrapper']")
         await cursor.click((authorizeButton as puppeteer.ElementHandle < Element > ));

@@ -29,88 +29,84 @@ export class TopGGHandler {
 
         Utils.printLoginInfo(botID, displayName);
 
-        let page: puppeteer.Page = (await browserWrapper.getOpenPages() as Page[])[0];
-        page.setDefaultTimeout(20 * 1000);
-        
+        //let page: puppeteer.Page = await browserWrapper.getNthPage(0);
+        (await browserWrapper.getNthPage(0)).setDefaultTimeout(20 * 1000);
+
         // This ensures that certain elements of the page are loaded without the need to scroll
-        await page.setViewport({
+        await (await browserWrapper.getNthPage(0)).setViewport({
             width: 1920,
             height: 1080
         });
 
-        let cursor: GhostCursor = createCursor(page);
-        await installMouseHelper(page);
 
         const url: string = `https://top.gg/bot/${botID}/vote`;
-        await page.goto(url);
-        
-        // CF detects pptr, so we need to disconnect while it inspects environment.
+        (await browserWrapper.getNthPage(0)).goto(url).catch(error => {});
+        // CF detects pptr, so we need to disconnect while it inspects the environment.
         browserWrapper.disconnectFromBrowserInstance();
         await Utils.sleep(10 * 1000);
         await browserWrapper.reconnectToBrowserInstance();
         
-        page = (await browserWrapper.getOpenPages() as Page[])[0];
-        cursor = createCursor(page);
-        await installMouseHelper(page);
+        //let cursor = createCursor(await browserWrapper.getNthPage(0));
+        await installMouseHelper(await browserWrapper.getNthPage(0));
         
-        await page.setViewport({
+        await (await browserWrapper.getNthPage(0)).setViewport({
             width: 1920,
             height: 1080
         });
 
-        if (await this.cfHandler.gotCloudFlareBlocked(page)) {
+        if (await this.cfHandler.gotCloudFlareBlocked((await browserWrapper.getNthPage(0)))) {
             this.logger.log("Encountered CloudFlare error. This may be caused by too many connections. Details are below.", MessageType.ERROR);
-            this.logger.log(await this.cfHandler.getCloudFlareErrInfo(page), MessageType.NONE);
+            this.logger.log(await this.cfHandler.getCloudFlareErrInfo((await browserWrapper.getNthPage(0))), MessageType.NONE);
             await Utils.sleep(5000);
             return VoteStatus.CLOUDFLARE_FAIL;
         }
 
-        // This checks for the CloudFlare landing page. This seems to now be mandatory for all users.
-        if (await this.cfHandler.gotCloudFlareCAPTCHA(page)) {
-            let status = await this.cfHandler.bypassCFCaptcha(page, cursor);
+        // This checks for the CloudFlare landing (await browserWrapper.getNthPage(0)). This seems to now be mandatory for all users.
+        if (await this.cfHandler.gotCloudFlareCAPTCHA((await browserWrapper.getNthPage(0)))) {
+            let status = await this.cfHandler.bypassCFCaptcha((await browserWrapper.getNthPage(0)), await browserWrapper.getCursor(0), browserWrapper);
 
             if (status !== VoteStatus.CONTINUE) {
                 return status;
             }
         }
         
-        let needsLoggedIn : boolean = await this.needsLoggedInToDiscord(page);
-        let loggedInUser : string = await this.getCurrentlyLoggedInUserOnTopGG(page);
+        let needsLoggedIn : boolean = await this.needsLoggedInToDiscord(await browserWrapper.getNthPage(0));
+        let loggedInUser : string = await this.getCurrentlyLoggedInUserOnTopGG(await browserWrapper.getNthPage(0));
 
         if (!needsLoggedIn && loggedInUser !== displayName) {
             this.logger.log(`Did not successfully clear login data of former user. Currently logged in as: ${loggedInUser}, should be: ${displayName}`, MessageType.ERROR);
             return VoteStatus.FAILED_TO_CLEAR_LOGIN_DATA_FAIL;
         }
 
-        if (await this.checkAlreadyVoted(page)) {
-            this.logger.log(`You have already voted for ${await this.getBotName(page)}. Exiting...`, MessageType.WARNING);
+        if (await this.checkAlreadyVoted((await browserWrapper.getNthPage(0)))) {
+            this.logger.log(`You have already voted for ${await this.getBotName((await browserWrapper.getNthPage(0)))}. Exiting...`, MessageType.WARNING);
             return VoteStatus.ALREADY_VOTED_FAIL;
         }
 
         if (needsLoggedIn) {
-            await this.clickLoginButtonOnTopGG(page, cursor);
+            await this.clickLoginButtonOnTopGG((await browserWrapper.getNthPage(0)), await browserWrapper.getCursor(0));
 
-            await Promise.any([page.waitForNetworkIdle(), Utils.sleep(10 * 1000)]);
+            await Promise.any([(await browserWrapper.getNthPage(0)).waitForNetworkIdle(), Utils.sleep(10 * 1000)]);
 
-            let status = await this.discordHandler.discordSignIn(page, cursor);
+            let status = await this.discordHandler.discordSignIn((await browserWrapper.getNthPage(0)), await browserWrapper.getCursor(0));
         
             if (status !== VoteStatus.CONTINUE) {
                 return status;
             }
         }
 
-        await Promise.any([page.waitForNetworkIdle(), Utils.sleep(10 * 1000, false)]);
+        await Promise.any([(await browserWrapper.getNthPage(0)).waitForNetworkIdle(), Utils.sleep(10 * 1000, false)]);
 
-        let voteSuccess: boolean | null = await this.handleVotingPostLogin(page, cursor, botID);
+        let voteSuccess: boolean | null = await this.handleVotingPostLogin((await browserWrapper.getNthPage(0)), await browserWrapper.getCursor(0), botID);
 
         if (voteSuccess == null) {
             this.logger.log("Did not recieve failure nor success repsonse from server. Retrying vote process.", MessageType.WARNING)
-            await page.reload();
-            await Promise.any([page.waitForNetworkIdle(), Utils.sleep(20 * 1000, false)]);
-            voteSuccess = await this.handleVotingPostLogin(page, cursor, botID);
+            await (await browserWrapper.getNthPage(0)).reload();
+            await Promise.any([(await browserWrapper.getNthPage(0)).waitForNetworkIdle(), Utils.sleep(20 * 1000, false)]);
+            voteSuccess = await this.handleVotingPostLogin((await browserWrapper.getNthPage(0)), await browserWrapper.getCursor(0), botID);
         }
 
-        await page.close();
+        await (await browserWrapper.getNthPage(0)).close();
         if (voteSuccess == null) {
             this.logger.log("Did not recieve failure nor success repsonse from server again. Aborting.", MessageType.ERROR);
             return VoteStatus.OTHER_RETRY_FAIL;
@@ -133,7 +129,7 @@ export class TopGGHandler {
         username === "false" ? this.logger.log("No user currently logged in") : this.logger.log(`Extracted the username ${username} from top.gg`)
         if (username === null)
         {
-            this.logger.log("Failed to extract username from page.", MessageType.WARNING);
+            this.logger.log("Failed to extract username from (await browserWrapper.getNthPage(0)).", MessageType.WARNING);
             username = "";
         }
 
@@ -151,7 +147,7 @@ export class TopGGHandler {
     
             return voteForString.substring(11);
         } catch (err) {
-            this.logger.log(err as string, MessageType.ERROR);
+            this.logger.log((err as Error).message, MessageType.ERROR);
             return "UNKNOWN BOT (Exception)";
         }
     };
@@ -159,7 +155,7 @@ export class TopGGHandler {
 
     /**
      * 
-     * @param page The page, which should be navigated to the Bot's Top.gg vote page.
+     * @param page The page, which should be navigated to the Bot's Top.gg vote (await browserWrapper.getNthPage(0)).
      * @returns TRUE if top.gg displays text indicating that the user has already voted for the bot. FALSE otherwise. Note this will sometimes return FALSE even if the user has voted for the bot already due to top.gg not specifying as much.
      */
     async checkAlreadyVoted(page: puppeteer.Page): Promise < boolean > {
@@ -171,7 +167,7 @@ export class TopGGHandler {
             return false;
     };
 
-    async handleVotingPostLogin(page: puppeteer.Page, cursor: GhostCursor, botID: string): Promise < boolean | null > {
+    async handleVotingPostLogin(page: Page, cursor: GhostCursor, botID: string): Promise < boolean | null > {
         let lastVoteSuccess: boolean | null = null;
         let botName: string = await this.getBotName(page);
         this.logger.log(`Attempting to vote for ${botName}...`);
@@ -223,7 +219,7 @@ export class TopGGHandler {
     };
 
 
-    async needsLoggedInToDiscord(page: puppeteer.Page): Promise < boolean > {
+    async needsLoggedInToDiscord(page: Page): Promise < boolean > {
         await Utils.sleep(5000); //on page load
     
         let results = await page.$("button[id='popover-trigger-10']");
@@ -240,7 +236,7 @@ export class TopGGHandler {
         return false;
     };
     
-    async clickLoginButtonOnTopGG(page: puppeteer.Page, cursor: GhostCursor): Promise < void > {
+    async clickLoginButtonOnTopGG(page: Page, cursor: GhostCursor): Promise < void > {
         this.logger.log("Attempting to click log in button on top.gg...");
         let loginToVoteButton: puppeteer.ElementHandle < Node > | null = await page.waitForXPath('//a[text()="Login"]');
     
@@ -257,7 +253,7 @@ export class TopGGHandler {
     async clickVoteButtonOnTopGG(page: puppeteer.Page, cursor: GhostCursor): Promise < void > {
         this.logger.log("Waiting for Top.gg...", MessageType.INFO);
         await Promise.any([page.waitForNetworkIdle(), Utils.sleep(20 * 1000, false)]);
-        this.logger.log("Finished waiting for page.", MessageType.INFO);
+        this.logger.log("Finished waiting for (await browserWrapper.getNthPage(0)).", MessageType.INFO);
     
         await page.evaluate("window.readyToVote();");
     

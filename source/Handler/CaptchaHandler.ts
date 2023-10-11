@@ -49,12 +49,12 @@ export class CaptchaHandler {
             return null;
         } else {
             if (await this.gotCaptchaed(page)) {
-                await this.clickCaptchaBox(page, cursor);
+                await this.clickHCaptchaBox(page, cursor);
                 await Utils.sleep(5000);
                 if (await this.gotCaptchaed(page)) {
                     this.logger.log("Failed captcha challenge. Trying again...", MessageType.WARNING);
-                    await this.clickCaptchaBox(page, cursor);
-                    await sleep(5000);
+                    await this.clickHCaptchaBox(page, cursor);
+                    await Utils.sleep(5000);
                     if (await this.gotCaptchaed(page)) {
                         this.logger.log("Failed captcha challenge again. Please try logging in manually in the Chromium instance and Authorizing. This should save your login for future attempts.", MessageType.ERROR);
                         return false;
@@ -80,7 +80,7 @@ export class CaptchaHandler {
         return false;
     }
 
-    async clickCaptchaBox(page: Page, cursor: GhostCursor): Promise < void > {
+    async clickHCaptchaBox(page: Page, cursor: GhostCursor): Promise < void > {
         this.logger.log("Clicking captcha box...", MessageType.INFO);
         let captchaBox = await page.$("iframe[src*='hcaptcha']");
         let captchaBoundingBox: BoundingBox | null | undefined = (await captchaBox?.boundingBox());

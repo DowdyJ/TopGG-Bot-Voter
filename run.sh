@@ -7,6 +7,15 @@ ECHO_PREFIX_1=$'\e[0m\e[38;5;236m'
 ECHO_PREFIX_2="[\x20\x20SHELL\x20\x20]"
 ECHO_PREFIX_3=$'\e[0m'
 ECHO_PREFIX="${ECHO_PREFIX_1}${ECHO_PREFIX_2}${ECHO_PREFIX_3}"
+BROWSER_LAUNCH_FLAGS="--remote-debugging-port=9222 --disable-gpu --disable-dev-shm-usage --disable-setuid-sandbox --no-first-run --no-sandbox --no-zygote --deterministic-fetch --disable-features=IsolateOrigins"
+# Flag Explanation
+# --disable-gpu & --no-zygote & --disable-dev-shm-usage => Flags for servers
+# --deterministic-fetch & --no-first-run => Helps with consistency
+# --no-sandbox & --disable-setuid-sandbox => I believe this fixes issues with snap/flatpack chrome/chromium installs
+# --disable-features=IsolateOrigins => Potentially unneeded. Supposed to allow for interacting with elements inside of iframes from different domains
+# --remote-debugging-port=9222 => Exposes the browser on port 9222 so that we can get the websocket URL. Absolutely necessary.
+# 
+# DO NOT USE --disable-site-isolation-trials - It will cause CF Turnstile to fail
 
 LaunchChromium() 
 {
@@ -19,12 +28,11 @@ LaunchChromium()
     if [ ${REAL_SCREEN,,} = "false" ]
     then
         echo -e $ECHO_PREFIX Launching Chromium: $CHROMIUM with virtual frame buffer...
-        xvfb-run -a -s "-ac" exec $CHROMIUM --remote-debugging-port=9222 --disable-gpu --disable-dev-shm-usage --disable-setuid-sandbox --no-first-run --no-sandbox --no-zygote --deterministic-fetch --disable-features=IsolateOrigins --disable-site-isolation-trials &>/dev/null &
-        echo -e $ECHO_PREFIX Running Xvfb on server number `printenv DISPLAY`
+        xvfb-run -a -s "-ac" exec $CHROMIUM $BROWSER_LAUNCH_FLAGS &>/dev/null &
     elif [ ${REAL_SCREEN,,} = "true" ]
     then
         echo -e $ECHO_PREFIX Launching Chromium: $CHROMIUM with real display...  
-        exec $CHROMIUM --remote-debugging-port=9222 --disable-gpu --disable-dev-shm-usage --disable-setuid-sandbox --no-first-run --no-sandbox --no-zygote --deterministic-fetch --disable-features=IsolateOrigins --disable-site-isolation-trials &>/dev/null &
+        exec $CHROMIUM $BROWSER_LAUNCH_FLAGS &>/dev/null &
     else
         echo -e $ECHO_PREFIX "Please use \"true\" or \"false\" for real_screen in data/config.json"
         exit
