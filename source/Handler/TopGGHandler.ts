@@ -176,15 +176,13 @@ export class TopGGHandler {
             if (response.request().method() === 'POST') {
                 if (response.url().includes(`${botID}/vote`)) {
                     if (response?.ok()) {
-                        this.logger.log(`Successfully voted for ${botName}!`, MessageType.SUCCESS);
+                        this.logger.logOnce(`Successfully voted for ${botName}!`, MessageType.SUCCESS, "1341" + botName);
                         lastVoteSuccess = true;
                     } else {
-                        this.logger.log(`Failed to vote for ${botName}. Response as follows.`, MessageType.WARNING);
+                        this.logger.log(`Failed to vote for ${botName}. Response logged to data/log.txt.`, MessageType.WARNING);
                         this.logger.logToFile(`Failure response from top.gg. Bot ID: ${botID}. Details: ${await response?.text()}`);
                         lastVoteSuccess = false;
                     }
-                } else {
-                    //console.this.logger.log(`Other POST request: ${response.url()} with response ${response.status}`);
                 }
             }
         }
@@ -253,7 +251,7 @@ export class TopGGHandler {
     async clickVoteButtonOnTopGG(page: puppeteer.Page, cursor: GhostCursor): Promise < void > {
         this.logger.log("Waiting for Top.gg...", MessageType.INFO);
         await Promise.any([page.waitForNetworkIdle(), Utils.sleep(20 * 1000, false)]);
-        this.logger.log("Finished waiting for (await browserWrapper.getNthPage(0)).", MessageType.INFO);
+        this.logger.log("Finished waiting for top.gg.", MessageType.INFO);
     
         await page.evaluate("window.readyToVote();");
     

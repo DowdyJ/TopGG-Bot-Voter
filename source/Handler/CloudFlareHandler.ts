@@ -39,7 +39,6 @@ export class CloudFlareHandler {
     async gotCloudFlareCAPTCHA(page : puppeteer.Page) {
         let captchaBox = await page.$("#turnstile-wrapper");
         if (captchaBox !== null) {
-            this.logger.log("Encountered Cloudflare CAPTCHA challenge.", MessageType.WARNING);
             return true;
         }
         return false;
@@ -59,13 +58,10 @@ export class CloudFlareHandler {
             this.logger.log("Unable to locate CloudFlare CAPTCHA field to click, aborting.", MessageType.ERROR);
             return VoteStatus.CLOUDFLARE_FAIL;
         }
-        
-        // Wait for the decision by CF on if we need to click the box or not.
-        // await Utils.sleep(10 * 1000);
 
         // This element is present on the top.gg side, but not on the CF side. If the element is not found, we need to solve the CF puzzle.
         if (await this.gotCloudFlareCAPTCHA(page)) {
-            this.logger.log("Forced CF CAPTCHA");
+            this.logger.log("Encountered CF CAPTCHA", MessageType.WARNING);
             try {
                 let captchaBoundingBox = await iframeContainer.boundingBox();
                 

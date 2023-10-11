@@ -12,6 +12,7 @@ export class Logger {
     static readonly YELLOW = '\u001b[33m';
     static readonly RESET = '\u001b[0m';
 
+    private loggedMessageKeys = new Set<string>();
 
     logSuccess(message: string): void {
         console.log(`${Logger.RESET}${Logger.GREEN}${Logger.BOLD}[ SUCCESS ]${Logger.RESET} ${message}`);
@@ -27,6 +28,14 @@ export class Logger {
     
     logInfo(message: string): void {
         console.log(`${Logger.RESET}${Logger.BLUE}${Logger.BOLD}[  INFO   ]${Logger.RESET} ${message}`);
+    }
+
+    logOnce(message: string, messageType: MessageType = MessageType.INFO, messageKey: string) {
+        if (this.loggedMessageKeys.has(messageKey))
+            return;
+
+        this.loggedMessageKeys.add(messageKey);
+        this.log(message, messageType);
     }
     
     log(message: string, messageType: MessageType = MessageType.INFO): void {
