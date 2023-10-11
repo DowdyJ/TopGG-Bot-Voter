@@ -20,7 +20,11 @@ BROWSER_LAUNCH_FLAGS="--remote-debugging-port=9222 --disable-gpu --disable-dev-s
 
 LaunchChromium() 
 {
-    
+    # Cleanup lock files left over from dirty runs
+    rm -f "$1/SingletonLock"
+    rm -f "$1/SingletonCookie"
+    rm -f "$1/SingletonSocket"
+
     CHROMIUM=$(node source/getChromiumExecutablePath.js)
     # CHROMIUM=$(which chromium)
     echo -e $ECHO_PREFIX Found Chrome at $(which chromium) and using it from $CHROMIUM
