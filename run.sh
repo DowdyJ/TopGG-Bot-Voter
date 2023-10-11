@@ -29,7 +29,7 @@ LaunchChromium()
     if [ ${REAL_SCREEN,,} = "false" ]
     then
         echo -e $ECHO_PREFIX Launching Chromium: $CHROMIUM with virtual frame buffer...
-        xvfb-run -a -s "-ac" exec ${CHROMIUM $BROWSER_LAUNCH_FLAGS}$1 &>/dev/null &
+        xvfb-run -a -s "-ac" exec $CHROMIUM ${BROWSER_LAUNCH_FLAGS}$1 &>/dev/null &
     elif [ ${REAL_SCREEN,,} = "true" ]
     then
         echo -e $ECHO_PREFIX Launching Chromium: $CHROMIUM with real display...  
@@ -87,12 +87,18 @@ Vote()
             BOTNAME=$bot
             USERNAME=$(echo $USERJSON | jq -r .discord_username)
             DISPLAYNAME=$(echo $USERJSON | jq -r .discord_displayname)
-            mkdir -p "userdata_cache/$DISPLAYNAME"
+            mkdir -p "data/userdata_cache/$DISPLAYNAME"
             PASSWORD=$(echo $USERJSON | jq -r .discord_password)
             CAPTCHA_API_KEY=$(cat data/config.json | jq -r .settings.twocaptchaAPIKey)
             BOTID=$(cat data/config.json | jq -r .bots.${BOTNAME,,})
-            LaunchChromium userdata_cache/$DISPLAYNAME
-            WEBSOCKET=$(curl -s http://127.0.0.1:9222/json/version | jq -r .webSocketDebuggerUrl)
+            LaunchChromium data/userdata_cache/$DISPLAYNAME
+            WEBSOCKET=$(curl -s http://localhost:9222/json/version | jq -r .webSocketDebuggerUrl)
+
+            if [ -z $WEBSOCKET ] 
+            then
+                echo -e "$ECHO_PREFIX Failed to get websocket URL. Aborting."
+                exit
+            fi
 
             node source/index.js \
             $USERNAME \

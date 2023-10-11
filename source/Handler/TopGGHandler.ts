@@ -170,7 +170,7 @@ export class TopGGHandler {
     async handleVotingPostLogin(page: Page, cursor: GhostCursor, botID: string): Promise < boolean | null > {
         let lastVoteSuccess: boolean | null = null;
         let botName: string = await this.getBotName(page);
-        this.logger.log(`Attempting to vote for ${botName}...`);
+        this.logger.log(`Starting vote process on top.gg for ${botName}...`);
     
         const responseCallback = async (response: puppeteer.HTTPResponse) => {
             if (response.request().method() === 'POST') {
