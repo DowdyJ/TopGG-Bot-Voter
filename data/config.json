@@ -6,7 +6,8 @@
     },
     "advancedSettings": {
         "chromiumInstallDirectory":"",
-        "chromeLaunchPause":5,
+        "chromeLaunchPause":10,
+        "sleepCountDown":"TRUE",
         "minTimeToWaitForLoop":43800,
         "maxTimeToWaitForLoop":45000
     },
