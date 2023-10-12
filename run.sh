@@ -122,6 +122,8 @@ Vote()
 
 
 SHOULD_LOOP="$(cat data/config.json | jq -r .settings.autoloop)"
+SLEEP_COUNTDOWN="$(cat data/config.json | jq -r .advancedSettings.sleepCountDown)"
+
 if [ "${SHOULD_LOOP,,}" = "false" ]
 then
     Vote
@@ -137,10 +139,14 @@ then
         SECONDS_TO_SLEEP=$(shuf -i ${MINLOOPTIME}-${MAXLOOPTIME} -n1)
         echo -e $ECHO_PREFIX "Sleeping for ${SECONDS_TO_SLEEP} seconds."
 
-        # This gives a nice count down, but fills up nohup logs. 
-        # for i in $(seq 1 $SECONDS_TO_SLEEP); do   
-        #     echo -e "\e[1A\e[KSleeping... $(($SECONDS_TO_SLEEP - $i))"
-        #     sleep 1
-        # done
+        for i in $(seq 1 $SECONDS_TO_SLEEP); do   
+            if [ $SLEEP_COUNTDOWN = "TRUE" ]
+            then
+                # This gives a nice count down, but fills up nohup logs. 
+                echo -e "\e[1A\e[KSleeping... $(($SECONDS_TO_SLEEP - $i))"
+            fi
+            
+            sleep 1
+        done
     done
 fi
