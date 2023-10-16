@@ -135,18 +135,37 @@ then
 
     while :
     do
-        Vote
-        SECONDS_TO_SLEEP=$(shuf -i ${MINLOOPTIME}-${MAXLOOPTIME} -n1)
+        # Check if we should resume a countdown or start a new one
+        if [ ! -e "data/breadcrumbs/countdown" ]
+        then
+            Vote
+            touch "data/breadcrumbs/countdown"
+            SECONDS_TO_SLEEP=$(shuf -i ${MINLOOPTIME}-${MAXLOOPTIME} -n1)
+        else
+            SECONDS_TO_SLEEP=$(cat data/breadcrumbs/countdown | tr -d '\n')
+        fi
+
+
         echo -e $ECHO_PREFIX "Sleeping for ${SECONDS_TO_SLEEP} seconds."
 
-        for i in $(seq 1 $SECONDS_TO_SLEEP); do   
+        for i in $(seq 1 $SECONDS_TO_SLEEP); do
+
             if [ $SLEEP_COUNTDOWN = "TRUE" ]
             then
                 # This gives a nice count down, but fills up nohup logs. 
                 echo -e "\e[1A\e[KSleeping... $(($SECONDS_TO_SLEEP - $i))"
             fi
-            
+
+            # Every five minutes make a checkpoint in the countdown. This will let us resume if the process gets killed.
+            if [ $(($(($SECONDS_TO_SLEEP - $i)) % 300)) -eq 0 ] 
+            then
+                echo $(($SECONDS_TO_SLEEP - $i)) > data/breadcrumbs/countdown
+            fi
+
             sleep 1
         done
+
+        rm -f data/breadcrumbs/countdown
+
     done
 fi
