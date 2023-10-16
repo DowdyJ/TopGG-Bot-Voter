@@ -141,6 +141,7 @@ then
             Vote
             touch "data/breadcrumbs/countdown"
             SECONDS_TO_SLEEP=$(shuf -i ${MINLOOPTIME}-${MAXLOOPTIME} -n1)
+            echo $SECONDS_TO_SLEEP > data/breadcrumbs/countdown
         else
             SECONDS_TO_SLEEP=$(cat data/breadcrumbs/countdown | tr -d '\n')
         fi
@@ -152,8 +153,9 @@ then
 
             if [ $SLEEP_COUNTDOWN = "TRUE" ]
             then
+                SECONDS_LEFT=$(($SECONDS_TO_SLEEP - $i))
                 # This gives a nice count down, but fills up nohup logs. 
-                echo -e "\e[1A\e[KSleeping... $(($SECONDS_TO_SLEEP - $i))"
+                echo -e "\e[1A\e[KSleeping... $(($SECONDS_LEFT / 3600)):$(($(($SECONDS_LEFT / 60)) % 60)):$(($SECONDS_LEFT % 60))"
             fi
 
             # Every five minutes make a checkpoint in the countdown. This will let us resume if the process gets killed.
