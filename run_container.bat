@@ -1,1 +1,1 @@
-docker run --restart=unless-stopped --cap-add=SYS_ADMIN -v ./data/:/app/bot_voter/data/ -it dowdyj/botvoter-backend
+docker run --restart=unless-stopped --cap-add=SYS_ADMIN -v ./data/:/app/bot_voter/data/ -it dowdyj/botvoter-backend --name="bot-voter"

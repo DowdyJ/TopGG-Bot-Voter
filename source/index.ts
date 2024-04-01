@@ -59,6 +59,10 @@ import { Utils } from "./Utils";
             return;
         }
 
+        if (votingResult === VoteStatus.OTHER_CRIT_FAIL) {
+            throw new Error("Fatal Error.");
+        }
+
         return;
     } 
     catch (err) {

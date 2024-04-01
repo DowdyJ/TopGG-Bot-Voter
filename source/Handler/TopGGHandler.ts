@@ -86,7 +86,7 @@ export class TopGGHandler {
         if (needsLoggedIn) {
             await this.clickLoginButtonOnTopGG((await browserWrapper.getNthPage(0)), await browserWrapper.getCursor(0));
 
-            await Promise.any([(await browserWrapper.getNthPage(0)).waitForNetworkIdle(), Utils.sleep(10 * 1000)]);
+            await Promise.all([(await browserWrapper.getNthPage(0)).waitForNetworkIdle(), Utils.sleep(10 * 1000)]);
 
             let status = await this.discordHandler.discordSignIn((await browserWrapper.getNthPage(0)), await browserWrapper.getCursor(0));
         
@@ -106,13 +106,16 @@ export class TopGGHandler {
             voteSuccess = await this.handleVotingPostLogin((await browserWrapper.getNthPage(0)), await browserWrapper.getCursor(0), botID);
         }
 
+        if (voteSuccess === false) {
+            throw new Error("Fatal voting error.");
+        }
+
         await (await browserWrapper.getNthPage(0)).close();
         if (voteSuccess == null) {
             this.logger.log("Did not recieve failure nor success repsonse from server again. Aborting.", MessageType.ERROR);
             return VoteStatus.OTHER_RETRY_FAIL;
-        } else if (voteSuccess === false) {
-            return VoteStatus.OTHER_CRIT_FAIL;
-        } else {
+        } 
+        else {
             return VoteStatus.SUCCESS;
         }
     };
@@ -200,6 +203,8 @@ export class TopGGHandler {
         
         let captchaResult = await this.captchaHandler.bypassCaptchas(page, cursor);
         if (captchaResult === false) {
+            page.off('response', responseCallback);
+        
             return false;
         } else if (captchaResult === true) {
             lastVoteSuccess = null;
@@ -209,7 +214,7 @@ export class TopGGHandler {
         } else {
             this.logger.log("Did not find a CAPTCHA to solve.");
         }
-    
+
         page.off('response', responseCallback);
     
         return lastVoteSuccess;
@@ -219,8 +224,9 @@ export class TopGGHandler {
 
     async needsLoggedInToDiscord(page: Page): Promise < boolean > {
         await Utils.sleep(5000); //on page load
-    
-        let results = await page.$("button[id='popover-trigger-10']");
+        
+        // Id of button that shows profile info
+        let results = await page.$("button[id='popover-trigger-:r8:']");
         if (results == null) {
             return true;
         }
