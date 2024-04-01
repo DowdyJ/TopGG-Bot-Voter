@@ -34,7 +34,7 @@ After installing Docker, do the following:
   <li>Download the repository.</li>
   <li>Open the Docker desktop app. You can close it as soon as it finishes loading. This starts the background process (daemon) that's needed for the application.</li>
   <li><a href="#configjson">Edit <code>data/config.json</code></a></li>
-  <li>Double click on <code>run_container.bat</code>. For MacOS, copy the command from the file and run it in your terminal.</li>
+  <li>Double click on <code>run_container.bat</code>. For MacOS, copy the command from the file and run it in your terminal. The default behavior of this solution will reopen the voter on system reboot (if Docker is set to automatically start). To change this, replace the <code>--restart=unless-stopped</code> in the .bat file with <code>--rm</code>.</li>
 </ol>
 
 <h2 id="armInstallInstructions">Arm64 (Docker)</h2>
@@ -49,7 +49,8 @@ After installing Docker, do the following:
   <li>Open the Docker desktop app (Windows/Mac only). You can close it as soon as it finishes loading. This starts the background process (daemon) that's needed for the application.</li>
   <li><a href="#configjson">Edit <code>data/config.json</code></a>. *NOTE*: <b>You will need to set the "chromiumInstallDirectory" to "/usr/bin/chromium".</b></li>
   <li>From a terminal in the root of the repository, run the command <code>docker build -t botvoter-backend -f Dockerfile.arm64 .</code></li>
-  <li>To run the solution, use the command:<br> <code>docker run --cap-add=SYS_ADMIN --rm -v ./data/:/app/bot_voter/data/ -it botvoter-backend</code><br>This is the only step you need to launch it in the future.</li>
+  <li>To run the solution, use the command:<br> <code>docker run --cap-add=SYS_ADMIN --rm -v ./data/:/app/bot_voter/data/ -it botvoter-backend</code><br>
+    If you would like the solution to automatically relaunch on system reboot, replace the <code>--rm</code> in the command above with <code>--restart=unless-stopped</code>. To launch the voter in the future, simply run the command above.</li>
 </ol>
 
 <h2 id="configjson">Editing config.json</h2><br>
@@ -90,13 +91,13 @@ After installing Docker, do the following:
     <li>discord_password</li>
     <p>Your Discord password. Be sure not to share this file with anyone later.</p>
     <li>bots_to_vote_for</li>
-    <p>A list of bots you would like this account to vote for, seperated by commas. Use the names as declared in the "Bots section".</p>
+    <p>A list of bots you would like this account to vote for, seperated by commas. Use the names as declared in the "Bots" section.</p>
     </ul>
 </ul>
 
 
 <br>
-That should be all you need to do! To reduce the occurance of CAPTCHA puzzles and other headaches, userdata is cached in data/. This is largely beneficial. However, if for whatever reason this is causing trouble, you can safely delete these folders and it will act like a fresh install for each user.<br>
+That should be all you need to do! To reduce the occurance of CAPTCHA puzzles and other headaches, userdata is cached in data/. This is largely beneficial. However, if for whatever reason this is causing trouble, you can safely delete these folders and it will act like a fresh install for each user. Further, the voter will remember where it left off with respect to the countdown (autoloop). If you'd like to prevent it from resuming the countdown, delete the file "countdown" in data/breadcrumbs/<br>
 
 <h2>Notes</h2>
 As you must store your Discord username and password in plain text to use this, do be careful. This program doesn't steal your info, but it very well could. I've done my best to write this in a readable way, so feel free to check! If you have suggestions or contributions feel free to open a pull request or an issue.<br>
